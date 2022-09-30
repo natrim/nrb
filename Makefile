@@ -21,3 +21,7 @@ update-deps:
 
 optimize:
 	upx ./nrb*
+
+install:
+	go install ./...
+

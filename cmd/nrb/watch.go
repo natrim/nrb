@@ -20,7 +20,7 @@ var server api.ServeResult
 var protocol string
 var broker *lib.Broker
 
-func startServer() {
+func startServer(done chan bool) {
 	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
 	server, err := api.Serve(api.ServeOptions{
 		Servedir: staticDir,
@@ -33,11 +33,17 @@ func startServer() {
 		os.Exit(1)
 	}
 
+	done <- true
 	server.Wait()
 }
 
 func watch() {
-	go startServer()
+	done := make(chan bool)
+
+	go startServer(done)
+
+	<-done
+
 	var err error
 
 	watcher, err := fsnotify.NewWatcher()
@@ -61,8 +67,6 @@ func watch() {
 		fmt.Println("ERROR", err)
 		os.Exit(1)
 	}
-
-	done := make(chan bool)
 
 	go func() {
 		var (
