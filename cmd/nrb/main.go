@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 )
 
@@ -37,6 +38,7 @@ var isVersionUpdate = false
 var isWatch = false
 var isHelp = false
 
+var npmRun = ""
 var envFiles string
 
 var isSecured = false
@@ -51,6 +53,7 @@ func init() {
 	flag.BoolVar(&isHelp, "h", isVersion, "help")
 	flag.BoolVar(&isVersion, "v", isHelp, "version")
 	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "version update")
+	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
 	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env for fallback, no overriding)")
 
 	if envFiles == "" && lib.FileExists(filepath.Join(baseDir, ".env.local")) {
@@ -72,17 +75,56 @@ func init() {
 
 func main() {
 	flag.Parse()
-	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch)
+	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
 
 	if isHelp {
 		fmt.Println("× No help defined")
-		fmt.Println("> just kidding, run this script with -b to build the app, -w for watch mode, -s to serve build folder, -u to update build number, -t for test's, -v for current build version, -c to make https certificate for dev, -env to set custom .env files, and -h for this help")
+		fmt.Println("> just kidding, run this script with -b to build the app, -w for watch mode, -s to serve build folder, -u to update build number, -t for test's, -v for current build version, -c to make https certificate for dev, -env to set custom .env files, -r to run npm scripts, and -h for this help")
 		os.Exit(0)
 	}
 
 	if isTest {
 		fmt.Println("× No test's defined")
 		os.Exit(1)
+	}
+
+	if npmRun != "" {
+		jsonFile, err := os.ReadFile(filepath.Join(baseDir, "package.json"))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		var packageJson map[string]any
+		err = json.Unmarshal(jsonFile, &packageJson)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		if scripts, ok := packageJson["scripts"]; ok {
+			if script, ok := scripts.(map[string]any)[npmRun]; ok {
+				cmd := exec.Command("bash", "-c", script.(string))
+				if runtime.GOOS == "windows" {
+					cmd = exec.Command("bash.exe", "-c", script.(string))
+				}
+				cmd.Env = os.Environ()
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err := cmd.Run(); err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				} else {
+					fmt.Printf("✓ Run \"%s\" done.\n", npmRun)
+					os.Exit(0)
+				}
+			} else {
+				fmt.Println("× No script found in package.json")
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println("× No scripts found in package.json")
+			os.Exit(1)
+		}
 	}
 
 	if isMakeCert {
