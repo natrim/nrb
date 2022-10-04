@@ -173,7 +173,8 @@ func pipeRequest(w http.ResponseWriter, r *http.Request) {
 	resp, err := http.Get(fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri))
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		error404(w)
+		return
 	}
 
 	// copy esbuild headers
@@ -186,13 +187,20 @@ func pipeRequest(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		error404(w)
+		return
 	}
 
 	// and close
 	err = resp.Body.Close()
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		// error404(w)
 	}
+}
+
+func error404(res http.ResponseWriter) {
+	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.WriteHeader(http.StatusNotFound)
+	res.Write([]byte("404 - Not Found"))
 }
