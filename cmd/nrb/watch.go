@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/fsnotify/fsnotify"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -63,7 +65,8 @@ func watch() {
 		fmt.Println("> watching:", "tsconfig.json")
 	}
 
-	if err := filepath.WalkDir(lib.RealQuickPath(sourceDir), watchDir(watcher)); err != nil {
+	absWalkPath := lib.RealQuickPath(sourceDir)
+	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
 		fmt.Println("ERROR", err)
 		os.Exit(1)
 	}
@@ -81,31 +84,33 @@ func watch() {
 				if !ok {
 					return
 				}
+				//fmt.Printf("EVENT! %s\n", event.String())
+				// skip only chmod events
+				if event.Op == fsnotify.Chmod {
+					continue
+				}
 				lastEvent = event
 				timer.Reset(time.Millisecond * 100)
+
+				// add new directories to watcher
+				if event.Op&fsnotify.Create == fsnotify.Create {
+					stat, err := os.Stat(event.Name)
+					if err == nil && stat.IsDir() {
+						err = filepath.WalkDir(event.Name, watchDir(watcher))
+						if err != nil {
+							fmt.Println(err)
+						}
+					}
+				}
+
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
 				fmt.Println("ERROR", err)
 			case <-timer.C:
-				if lastEvent.Op&fsnotify.Write == fsnotify.Write {
-					//fmt.Printf("EVENT! %s\n", lastEvent.String())
-					fmt.Printf("↻ Updated file %s\n", filepath.Base(lastEvent.Name))
-					broker.Notifier <- []byte("update")
-				} else if lastEvent.Op&fsnotify.Create == fsnotify.Create {
-					//fmt.Printf("EVENT! %s\n", lastEvent.String())
-					fmt.Printf("↻ Created file %s\n", filepath.Base(lastEvent.Name))
-					broker.Notifier <- []byte("update")
-				} else if lastEvent.Op&fsnotify.Remove == fsnotify.Remove {
-					//fmt.Printf("EVENT! %s\n", lastEvent.String())
-					fmt.Printf("↻ Removed file %s\n", filepath.Base(lastEvent.Name))
-					broker.Notifier <- []byte("update")
-				} else if lastEvent.Op&fsnotify.Rename == fsnotify.Rename {
-					//fmt.Printf("EVENT! %s\n", lastEvent.String())
-					fmt.Printf("↻ Renamed file %s\n", filepath.Base(lastEvent.Name))
-					broker.Notifier <- []byte("update")
-				}
+				fmt.Printf("↻ Change in %s%s\n", sourceDir, strings.TrimPrefix(lastEvent.Name, absWalkPath))
+				broker.Notifier <- []byte("update")
 			}
 		}
 	}()
@@ -173,7 +178,9 @@ func pipeRequest(w http.ResponseWriter, r *http.Request) {
 	resp, err := http.Get(fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri))
 	if err != nil {
 		fmt.Println(err)
-		error404(w)
+		if !errors.Is(err, syscall.EPIPE) {
+			error404(w, true)
+		}
 		return
 	}
 
@@ -187,7 +194,9 @@ func pipeRequest(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
 		fmt.Println(err)
-		error404(w)
+		if !errors.Is(err, syscall.EPIPE) {
+			error404(w, false)
+		}
 		return
 	}
 
@@ -195,12 +204,14 @@ func pipeRequest(w http.ResponseWriter, r *http.Request) {
 	err = resp.Body.Close()
 	if err != nil {
 		fmt.Println(err)
-		// error404(w)
+		// error404(w, false)
 	}
 }
 
-func error404(res http.ResponseWriter) {
+func error404(res http.ResponseWriter, writeHeader bool) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	res.WriteHeader(http.StatusNotFound)
+	if writeHeader {
+		res.WriteHeader(http.StatusNotFound)
+	}
 	res.Write([]byte("404 - Not Found"))
 }
