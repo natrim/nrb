@@ -198,6 +198,7 @@ func main() {
 	mime.AddExtensionType(".md", "text/markdown")
 	mime.AddExtensionType(".svg", "image/svg+xml")
 	mime.AddExtensionType(".wasm", "application/wasm")
+	mime.AddExtensionType(".ico", "image/x-icon")
 
 	if isServe {
 		serve()

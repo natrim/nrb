@@ -123,9 +123,11 @@ func watch() {
 		}
 
 		broker = lib.NewStreamServer()
+		fileServer := lib.PipedFileServer(staticDir, pipeRequestToEsbuild)
 
-		http.HandleFunc("/", pipeRequest)
+		http.HandleFunc("/", fileServer)
 		http.Handle("/esbuild", broker)
+
 		fmt.Printf("> Listening on: %s%s:%d\n", protocol, host, wwwPort)
 
 		if isSecured {
@@ -134,7 +136,7 @@ func watch() {
 			err = http.ListenAndServe(fmt.Sprintf("%s:%d", host, wwwPort), nil)
 		}
 
-		if err != nil {
+		if !errors.Is(err, http.ErrServerClosed) {
 			fmt.Println(err)
 			watcher.Close()
 			server.Stop()
@@ -162,7 +164,7 @@ func watchDir(watcher *fsnotify.Watcher) fs.WalkDirFunc {
 	}
 }
 
-func pipeRequest(w http.ResponseWriter, r *http.Request) {
+func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	var uri string
 	// if not file request then go to index
 	if filepath.Ext(r.URL.Path) == "" {
