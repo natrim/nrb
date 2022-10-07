@@ -240,18 +240,6 @@ func main() {
 	}
 
 	if isWatch {
-		// hot reload watcher
-		reload := "(()=>{if(window.esIn)return;window.esIn=true;var s=new EventSource(\"/esbuild\"),r=0;s.onerror=()=>{r++;if(r>30){s.close();console.error('hot reload failed to init')}};s.onmessage=()=>location.reload()})();"
-		if buildOptions.Banner == nil {
-			buildOptions.Banner = map[string]string{"js": reload}
-		} else {
-			if _, ok := buildOptions.Banner["js"]; !ok {
-				buildOptions.Banner["js"] = reload
-			} else {
-				buildOptions.Banner["js"] = reload + buildOptions.Banner["js"]
-			}
-		}
-
 		watch()
 		os.Exit(0)
 	}

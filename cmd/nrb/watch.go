@@ -8,6 +8,7 @@ import (
 	"github.com/natrim/nrb/lib"
 	"io"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,29 +23,41 @@ var server api.ServeResult
 var protocol string
 var broker *lib.Broker
 
-func startServer(done chan bool) {
-	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
-	server, err := api.Serve(api.ServeOptions{
-		Servedir: staticDir,
-		Port:     proxyPort,
-		Host:     host,
-	}, buildOptions)
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func watch() {
+	// inject hot reload watcher to js
+	reload := "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onopen=()=>{console.log('hot reload connected')};s.onerror=()=>{s.close();console.error('hot reload failed to init');setTimeout(c,10000)};s.onmessage=()=>{console.log('hot reload received');location.reload()}}c()})();"
+	if buildOptions.Banner == nil {
+		buildOptions.Banner = map[string]string{"js": reload}
+	} else {
+		if _, ok := buildOptions.Banner["js"]; !ok {
+			buildOptions.Banner["js"] = reload
+		} else {
+			buildOptions.Banner["js"] = reload + buildOptions.Banner["js"]
+		}
 	}
 
-	done <- true
-	server.Wait()
-}
-
-func watch() {
 	done := make(chan bool)
 
-	go startServer(done)
+	go func() {
+		buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
+		server, err := api.Serve(api.ServeOptions{
+			Servedir: staticDir,
+			Port:     proxyPort,
+			Host:     host,
+		}, buildOptions)
+
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		done <- true
+		_ = server.Wait()
+		done <- true
+	}()
 
 	<-done
+	defer server.Stop()
 
 	var err error
 
@@ -53,7 +66,9 @@ func watch() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	defer watcher.Close()
+	defer func(watcher *fsnotify.Watcher) {
+		_ = watcher.Close()
+	}(watcher)
 
 	fmt.Println("> watching:", sourceDir)
 	tspath := filepath.Join(baseDir, "tsconfig.json")
@@ -78,6 +93,11 @@ func watch() {
 		)
 		timer = time.NewTimer(time.Millisecond)
 		<-timer.C
+
+		defer func() {
+			done <- true
+		}()
+
 		for {
 			select {
 			case event, ok := <-watcher.Events:
@@ -128,27 +148,27 @@ func watch() {
 		http.HandleFunc("/", fileServer)
 		http.Handle("/esbuild", broker)
 
+		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, wwwPort))
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
 		fmt.Printf("> Listening on: %s%s:%d\n", protocol, host, wwwPort)
 
 		if isSecured {
-			err = http.ListenAndServeTLS(fmt.Sprintf("%s:%d", host, wwwPort), certFile, keyFile, nil)
+			err = http.ServeTLS(socket, nil, certFile, keyFile)
 		} else {
-			err = http.ListenAndServe(fmt.Sprintf("%s:%d", host, wwwPort), nil)
+			err = http.Serve(socket, nil)
 		}
 
 		if !errors.Is(err, http.ErrServerClosed) {
 			fmt.Println(err)
-			watcher.Close()
-			server.Stop()
 			os.Exit(1)
 		}
 	}()
 
 	<-done
-	server.Stop()
-	watcher.Close()
-
-	//TODO: add serve proxy for hot reloading
 }
 
 // watchDir gets run as a walk func, searching for directories to add watchers to
@@ -215,5 +235,5 @@ func error404(res http.ResponseWriter, writeHeader bool) {
 	if writeHeader {
 		res.WriteHeader(http.StatusNotFound)
 	}
-	res.Write([]byte("404 - Not Found"))
+	_, _ = res.Write([]byte("404 - Not Found"))
 }
