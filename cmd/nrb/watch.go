@@ -23,16 +23,17 @@ var server api.ServeResult
 var protocol string
 var broker *lib.Broker
 
+var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onopen=()=>{console.log('hot reload connected')};s.onerror=()=>{s.close();console.error('hot reload failed to init');setTimeout(c,10000)};s.onmessage=()=>{console.log('hot reload received');location.reload()}}c()})();"
+
 func watch() {
 	// inject hot reload watcher to js
-	reload := "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onopen=()=>{console.log('hot reload connected')};s.onerror=()=>{s.close();console.error('hot reload failed to init');setTimeout(c,10000)};s.onmessage=()=>{console.log('hot reload received');location.reload()}}c()})();"
 	if buildOptions.Banner == nil {
-		buildOptions.Banner = map[string]string{"js": reload}
+		buildOptions.Banner = map[string]string{"js": reloadJS}
 	} else {
 		if _, ok := buildOptions.Banner["js"]; !ok {
-			buildOptions.Banner["js"] = reload
+			buildOptions.Banner["js"] = reloadJS
 		} else {
-			buildOptions.Banner["js"] = reload + buildOptions.Banner["js"]
+			buildOptions.Banner["js"] = reloadJS + buildOptions.Banner["js"]
 		}
 	}
 
@@ -143,7 +144,17 @@ func watch() {
 		}
 
 		broker = lib.NewStreamServer()
-		fileServer := lib.PipedFileServer(staticDir, pipeRequestToEsbuild)
+		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(handlerFunc http.HandlerFunc) http.HandlerFunc {
+			return func(writer http.ResponseWriter, request *http.Request) {
+				// pass base index to esbuild
+				if request.URL.Path == "/index.html" {
+					pipeRequestToEsbuild(writer, request)
+				} else {
+					// try all other files to load directly
+					handlerFunc(writer, request)
+				}
+			}
+		})
 
 		http.HandleFunc("/", fileServer)
 		http.Handle("/esbuild", broker)
@@ -206,6 +217,22 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if resp.StatusCode != 200 {
+		// esbuild errors
+		if resp.StatusCode == http.StatusServiceUnavailable && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write([]byte(fmt.Sprintf("<!doctype html><meta charset=utf-8><title>error</title><script>%s</script><body><pre>", reloadJS)))
+			_, err := io.Copy(w, resp.Body)
+			if err != nil {
+				_, _ = w.Write([]byte("Error: cannot build app"))
+			}
+			_ = resp.Body.Close()
+			return
+		}
+		error404(w, true)
+		return
+	}
+
 	// copy esbuild headers
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
 	w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
@@ -223,11 +250,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// and close
-	err = resp.Body.Close()
-	if err != nil {
-		fmt.Println(err)
-		// error404(w, false)
-	}
+	_ = resp.Body.Close()
 }
 
 func error404(res http.ResponseWriter, writeHeader bool) {

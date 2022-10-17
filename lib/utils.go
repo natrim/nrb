@@ -82,6 +82,11 @@ func PipedFileServer(baseDir string, pipe http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// PipedFileServerWithMiddleware wraps PipedFileServer with middleware
+func PipedFileServerWithMiddleware(baseDir string, pipe http.HandlerFunc, middleware func(http.HandlerFunc) http.HandlerFunc) http.HandlerFunc {
+	return middleware(PipedFileServer(baseDir, pipe))
+}
+
 // CopyDir copies the content of src to dst. src should be a full path.
 func CopyDir(dst, src string) error {
 	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
