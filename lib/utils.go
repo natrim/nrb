@@ -1,12 +1,16 @@
 package lib
 
 import (
-	"io"
+	"bytes"
+    "errors"
+    "io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
+    "runtime"
+    "strings"
+    "syscall"
 )
 
 type neuteredFileSystem struct {
@@ -144,4 +148,42 @@ func CopyDir(dst, src string) error {
 func FileExists(filename string) bool {
 	_, err := os.Stat(filename)
 	return err == nil
+}
+
+// InjectJSCSSToIndex injects js/css import to index.html content, returns bool if injected into content
+func InjectJSCSSToIndex(indexFile []byte, entryFileName, assetsDir string) ([]byte, bool) {
+	indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
+
+	//inject main js/css if not already in index.html
+	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".css")) {
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"preload\" href=\"/"+assetsDir+"/"+indexFileName+".css\" as=\"style\">\n<link rel=\"stylesheet\" href=\"/"+assetsDir+"/"+indexFileName+".css\">\n</head>"), -1)
+		return indexFile, true
+	}
+	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".js")) {
+		indexFile = bytes.Replace(indexFile, []byte("</body>"), []byte("<script type=\"module\" src=\"/"+assetsDir+"/"+indexFileName+".js\"></script>\n</body>"), -1)
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"modulepreload\" href=\"/"+assetsDir+"/"+indexFileName+".js\">\n</head>"), -1)
+		return indexFile, true
+	}
+
+	return indexFile, false
+}
+
+// IsErrorAddressAlreadyInUse checks if the error is bind: address already in use OR alternative
+func IsErrorAddressAlreadyInUse(err error) bool {
+    var eOsSyscall *os.SyscallError
+    if !errors.As(err, &eOsSyscall) {
+        return false
+    }
+    var errErrno syscall.Errno // doesn't need a "*" (ptr) because it's already a ptr (uintptr)
+    if !errors.As(eOsSyscall, &errErrno) {
+        return false
+    }
+    if errErrno == syscall.EADDRINUSE {
+        return true
+    }
+    const WSAEADDRINUSE = 10048
+    if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
+        return true
+    }
+    return false
 }

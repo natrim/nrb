@@ -81,22 +81,11 @@ func makeIndex(result *api.BuildResult) {
 		fmt.Println("× Failed to read build index.html:", err)
 		os.Exit(1)
 	}
-	saveIndexFile := false
-
-	indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 
 	//inject main js/css if not already in index.html
-	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".css")) {
-		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"preload\" href=\"/"+assetsDir+"/"+indexFileName+".css\" as=\"style\">\n<link rel=\"stylesheet\" href=\"/"+assetsDir+"/"+indexFileName+".css\">\n</head>"), -1)
-		saveIndexFile = true
-	}
-	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".js")) {
-		indexFile = bytes.Replace(indexFile, []byte("</body>"), []byte("<script type=\"module\" src=\"/"+assetsDir+"/"+indexFileName+".js\"></script>\n</body>"), -1)
-		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"modulepreload\" href=\"/"+assetsDir+"/"+indexFileName+".js\">\n</head>"), -1)
-		saveIndexFile = true
-	}
+	indexFile, saveIndexFile := lib.InjectJSCSSToIndex(indexFile, entryFileName, assetsDir)
 
-	// find chuksk to preload
+	// find chunks to preload
 	var chunksToPreload []string
 	for chunk, m := range metafile.Outputs {
 		for i, _ := range m.Inputs {
@@ -109,6 +98,7 @@ func makeIndex(result *api.BuildResult) {
 	}
 
 	if len(chunksToPreload) > 0 {
+        indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)(/?)%s/%s\.js(["']?)( ?/?)>`, assetsDir, indexFileName))
 		saveIndexFile = true
 		var replace [][]byte

@@ -17,8 +17,7 @@ import (
 	"time"
 )
 
-var proxyPort uint16 = 8032
-
+var proxyPort uint16
 var server api.ServeResult
 var protocol string
 var broker *lib.Broker
@@ -52,8 +51,20 @@ func watch() {
 			os.Exit(1)
 		}
 
+		// sync values used by esbuild to real used ones
+		proxyPort = server.Port
+		host = server.Host
+
+		// wait a bit cause
+		time.Sleep(250 * time.Millisecond)
+
+		// send to next step
 		done <- true
+
+		// wait for esbuild serve to die
 		_ = server.Wait()
+
+		// send next step
 		done <- true
 	}()
 
@@ -144,15 +155,19 @@ func watch() {
 		}
 
 		broker = lib.NewStreamServer()
-		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(handlerFunc http.HandlerFunc) http.HandlerFunc {
+		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
-				// pass base index to esbuild
+				// load the main index file and check if it contains js/css import
 				if request.URL.Path == "/index.html" {
-					pipeRequestToEsbuild(writer, request)
-				} else {
-					// try all other files to load directly
-					handlerFunc(writer, request)
+					if index, err := os.ReadFile(filepath.Join(staticDir, "index.html")); err == nil {
+						writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+						writer.WriteHeader(200)
+						index, _ := lib.InjectJSCSSToIndex(index, entryFileName, assetsDir)
+						_, _ = writer.Write(index)
+						return
+					}
 				}
+				next(writer, request)
 			}
 		})
 
@@ -161,8 +176,17 @@ func watch() {
 
 		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, wwwPort))
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			if lib.IsErrorAddressAlreadyInUse(err) {
+				socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
+				if err != nil {
+					fmt.Println(err)
+					os.Exit(1)
+				}
+				wwwPort = socket.Addr().(*net.TCPAddr).Port
+			} else {
+				fmt.Println(err)
+				os.Exit(1)
+			}
 		}
 
 		fmt.Printf("> Listening on: %s%s:%d\n", protocol, host, wwwPort)
