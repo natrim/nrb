@@ -56,17 +56,19 @@ func build() {
 		os.Exit(1)
 	}
 
-	fmt.Println("- Esbuild done")
+	fmt.Println("✓ Esbuild done")
 	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
 
 	fmt.Println("- Building index...")
-	preloadChunksInIndex(&result)
+	makeIndex(&result)
 
 	fmt.Println("✓ Build done")
 	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+
+	fmt.Println("✓ All work done 🎂")
 }
 
-func preloadChunksInIndex(result *api.BuildResult) {
+func makeIndex(result *api.BuildResult) {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {
@@ -74,6 +76,27 @@ func preloadChunksInIndex(result *api.BuildResult) {
 		os.Exit(1)
 	}
 
+	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
+	if err != nil {
+		fmt.Println("× Failed to read build index.html:", err)
+		os.Exit(1)
+	}
+	saveIndexFile := false
+
+	indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
+
+	//inject main js/css if not already in index.html
+	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".css")) {
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"preload\" href=\"/"+assetsDir+"/"+indexFileName+".css\" as=\"style\">\n<link rel=\"stylesheet\" href=\"/"+assetsDir+"/"+indexFileName+".css\">\n</head>"), -1)
+		saveIndexFile = true
+	}
+	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".js")) {
+		indexFile = bytes.Replace(indexFile, []byte("</body>"), []byte("<script type=\"module\" src=\"/"+assetsDir+"/"+indexFileName+".js\"></script>\n</body>"), -1)
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"modulepreload\" href=\"/"+assetsDir+"/"+indexFileName+".js\">\n</head>"), -1)
+		saveIndexFile = true
+	}
+
+	// find chuksk to preload
 	var chunksToPreload []string
 	for chunk, m := range metafile.Outputs {
 		for i, _ := range m.Inputs {
@@ -86,26 +109,27 @@ func preloadChunksInIndex(result *api.BuildResult) {
 	}
 
 	if len(chunksToPreload) > 0 {
-		indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
-		if err != nil {
-			fmt.Println("× Failed to read build index.html:", err)
-			os.Exit(1)
-		}
-		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)(/?)%s/%s\.js(["']?)( ?/?)>`, assetsDir, strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))))
+		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)(/?)%s/%s\.js(["']?)( ?/?)>`, assetsDir, indexFileName))
+		saveIndexFile = true
 		var replace [][]byte
 		for _, chunk := range chunksToPreload {
 			replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}${4}%s${5}${6}>`, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
 		}
-		html := findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
-		err = os.WriteFile(filepath.Join(outputDir, "index.html"), html, 0644)
+		indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
+	}
+
+	if saveIndexFile {
+		err = os.WriteFile(filepath.Join(outputDir, "index.html"), indexFile, 0644)
 		if err != nil {
 			fmt.Println("× Failed to write build index.html:", err)
 			os.Exit(1)
 		}
+	} else {
+		fmt.Println("- No changes to index.html")
 	}
 }
 
-// Metadata is json equivalent of this interface
+// Metadata is json equivalent of this esbuild metadata interface
 //
 //	interface Metadata {
 //	 inputs: {
@@ -131,6 +155,7 @@ func preloadChunksInIndex(result *api.BuildResult) {
 //	     }[]
 //	     exports: string[]
 //	     entryPoint?: string
+//	     cssBundle?: string
 //	   }
 //	 }
 //	}
@@ -153,5 +178,6 @@ type Metadata struct {
 		} `json:"imports"`
 		Exports    []string `json:"exports"`
 		EntryPoint string   `json:"entryPoint"`
+		CssBundle  string   `json:"cssBundle"`
 	} `json:"outputs"`
 }
