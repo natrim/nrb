@@ -53,7 +53,7 @@ func watch() {
 
 		// sync values used by esbuild to real used ones
 		proxyPort = server.Port
-		host = server.Host
+		// nope- host = server.Host
 
 		// wait a bit cause
 		time.Sleep(250 * time.Millisecond)
