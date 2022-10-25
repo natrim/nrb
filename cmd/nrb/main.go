@@ -60,6 +60,10 @@ var RELOAD = "↻"
 var ITEM = "-"
 
 func init() {
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	flag.CommandLine.Usage = func() {
+		// nothing, app will print it's stuff
+	}
 	//	flag.BoolVar(&isWatch, "w", isWatch, "watch mode")
 	//	flag.BoolVar(&isWatch, "watch", isWatch, "alias of -w")
 	//	flag.BoolVar(&isBuild, "b", isBuild, "build mode")
