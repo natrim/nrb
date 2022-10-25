@@ -19,27 +19,27 @@ func build() {
 	// remove output directory
 	err := os.RemoveAll(outputDir)
 	if err != nil {
-		fmt.Println("× Failed to clean build directory:", err)
+		fmt.Println(ERR, "Failed to clean build directory:", err)
 		return
 	}
 	// dont remake as we make copy of static dir:
 	// os.MkdirAll(outputDir, 0755)
 
-	fmt.Println("✓ Cleaned output dir")
-	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+	fmt.Println(OK, "Cleaned output dir")
+	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
 	// copy static directory to build directory
 	err = lib.CopyDir(outputDir, staticDir)
 	if err != nil {
-		fmt.Println("× Failed to copy static directory:", err)
+		fmt.Println(ERR, "Failed to copy static directory:", err)
 		return
 	}
 
-	fmt.Println("✓ Copied static files to output dir")
-	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+	fmt.Println(OK, "Copied static files to output dir")
+	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println("- Building..")
-	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+	fmt.Println(ITEM, "Building..")
+	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
 	// use metafile
 	buildOptions.Metafile = true
@@ -48,37 +48,37 @@ func build() {
 	result := api.Build(buildOptions)
 
 	if len(result.Errors) > 0 {
-		fmt.Println("× Failed to build")
-		fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+		fmt.Println(ERR, "Failed to build")
+		fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 		for _, err := range result.Errors {
 			fmt.Println("-*-", err.Text)
 		}
 		os.Exit(1)
 	}
 
-	fmt.Println("✓ Esbuild done")
-	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+	fmt.Println(OK, "Esbuild done")
+	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println("- Building index...")
+	fmt.Println(ITEM, "Building index...")
 	makeIndex(&result)
 
-	fmt.Println("✓ Build done")
-	fmt.Printf("< Time: %dms\n", time.Since(start).Milliseconds())
+	fmt.Println(OK, "Build done")
+	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println("✓ All work done 🎂")
+	fmt.Println(OK, " All work done 🎂")
 }
 
 func makeIndex(result *api.BuildResult) {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {
-		fmt.Println("× Failed to parse build metadata:", err)
+		fmt.Println(ERR, "Failed to parse build metadata:", err)
 		os.Exit(1)
 	}
 
 	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
 	if err != nil {
-		fmt.Println("× Failed to read build index.html:", err)
+		fmt.Println(ERR, "Failed to read build index.html:", err)
 		os.Exit(1)
 	}
 
@@ -98,7 +98,7 @@ func makeIndex(result *api.BuildResult) {
 	}
 
 	if len(chunksToPreload) > 0 {
-        indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
+		indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)(/?)%s/%s\.js(["']?)( ?/?)>`, assetsDir, indexFileName))
 		saveIndexFile = true
 		var replace [][]byte
@@ -111,11 +111,11 @@ func makeIndex(result *api.BuildResult) {
 	if saveIndexFile {
 		err = os.WriteFile(filepath.Join(outputDir, "index.html"), indexFile, 0644)
 		if err != nil {
-			fmt.Println("× Failed to write build index.html:", err)
+			fmt.Println(ERR, "Failed to write build index.html:", err)
 			os.Exit(1)
 		}
 	} else {
-		fmt.Println("- No changes to index.html")
+		fmt.Println(ITEM, "No changes to index.html")
 	}
 }
 

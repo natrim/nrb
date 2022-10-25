@@ -47,7 +47,7 @@ func watch() {
 		}, buildOptions)
 
 		if err != nil {
-			fmt.Println(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 
@@ -75,26 +75,26 @@ func watch() {
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	defer func(watcher *fsnotify.Watcher) {
 		_ = watcher.Close()
 	}(watcher)
 
-	fmt.Println("> watching:", sourceDir)
+	fmt.Println(INFO, "watching:", sourceDir)
 	tspath := filepath.Join(baseDir, "tsconfig.json")
 	if lib.FileExists(tspath) {
 		if err := watcher.Add(tspath); err != nil {
-			fmt.Println("ERROR", err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println("> watching:", "tsconfig.json")
+		fmt.Println(INFO, "watching:", "tsconfig.json")
 	}
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
-		fmt.Println("ERROR", err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -130,7 +130,7 @@ func watch() {
 					if err == nil && stat.IsDir() {
 						err = filepath.WalkDir(event.Name, watchDir(watcher))
 						if err != nil {
-							fmt.Println(err)
+							_, _ = fmt.Fprintln(os.Stderr, err)
 						}
 					}
 				}
@@ -139,9 +139,9 @@ func watch() {
 				if !ok {
 					return
 				}
-				fmt.Println("ERROR", err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 			case <-timer.C:
-				fmt.Printf("↻ Change in %s%s\n", sourceDir, strings.TrimPrefix(lastEvent.Name, absWalkPath))
+				fmt.Printf(RELOAD+" Change in %s%s\n", sourceDir, strings.TrimPrefix(lastEvent.Name, absWalkPath))
 				broker.Notifier <- []byte("update")
 			}
 		}
@@ -179,17 +179,17 @@ func watch() {
 			if lib.IsErrorAddressAlreadyInUse(err) {
 				socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
 				if err != nil {
-					fmt.Println(err)
+					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
 				wwwPort = socket.Addr().(*net.TCPAddr).Port
 			} else {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		}
 
-		fmt.Printf("> Listening on: %s%s:%d\n", protocol, host, wwwPort)
+		fmt.Printf(INFO+" Listening on: %s%s:%d\n", protocol, host, wwwPort)
 
 		if isSecured {
 			err = http.ServeTLS(socket, nil, certFile, keyFile)
@@ -198,7 +198,7 @@ func watch() {
 		}
 
 		if !errors.Is(err, http.ErrServerClosed) {
-			fmt.Println(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 	}()
@@ -234,7 +234,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	// get the file from esbuild
 	resp, err := http.Get(fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri))
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		if !errors.Is(err, syscall.EPIPE) {
 			error404(w, true)
 		}
@@ -266,7 +266,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	// copy esbuild response
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		if !errors.Is(err, syscall.EPIPE) {
 			error404(w, false)
 		}

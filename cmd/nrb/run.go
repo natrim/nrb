@@ -12,13 +12,13 @@ import (
 func run() {
 	jsonFile, err := os.ReadFile(filepath.Join(baseDir, "package.json"))
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	var packageJson map[string]any
 	err = json.Unmarshal(jsonFile, &packageJson)
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
@@ -32,18 +32,18 @@ func run() {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				fmt.Println(err)
+				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			} else {
-				fmt.Printf("✓ Run \"%s\" done.\n", npmRun)
+				fmt.Printf(OK+" Run \"%s\" done.\n", npmRun)
 				os.Exit(0)
 			}
 		} else {
-			fmt.Println("× No script found in package.json")
+			fmt.Println(ERR, "No script found in package.json")
 			os.Exit(1)
 		}
 	} else {
-		fmt.Println("× No scripts found in package.json")
+		fmt.Println(ERR, "No scripts found in package.json")
 		os.Exit(1)
 	}
 }

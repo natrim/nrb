@@ -16,11 +16,11 @@ func makeEnv() map[string]string {
 
 	envFiles = strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
 
-	fmt.Printf("> loading .env files: %s\n", envFiles)
+	fmt.Printf(INFO+" loading .env files: %s\n", envFiles)
 
 	err := godotenv.Load(strings.Split(envFiles, ",")...)
 	if err != nil {
-		fmt.Println("× Error loading .env file/s:", err)
+		fmt.Println(ERR, "Error loading .env file/s:", err)
 		os.Exit(1)
 	}
 
@@ -31,7 +31,7 @@ func makeEnv() map[string]string {
 		MODE = "production"
 	}
 
-	fmt.Printf("> mode: \"%s\"\n", MODE)
+	fmt.Printf(INFO+" mode: \"%s\"\n", MODE)
 
 	isDevelopment := "false"
 	isProduction := "false"
@@ -58,14 +58,14 @@ func makeEnv() map[string]string {
 		"import.meta.env.DEV":      isDevelopment,
 
 		// metaData version
-		"process.env.REACT_APP_VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
-		"import.meta.REACT_APP_VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
+		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
+		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
 	}
 
 	envAll := os.Environ()
 	for _, v := range envAll {
 		env := strings.SplitN(v, "=", 2)
-		if strings.HasPrefix(env[0], "REACT_APP_") {
+		if strings.HasPrefix(env[0], envPrefix) {
 			define[fmt.Sprintf("process.env.%s", env[0])] = fmt.Sprintf("\"%s\"", env[1])
 			define[fmt.Sprintf("import.meta.%s", env[0])] = fmt.Sprintf("\"%s\"", env[1])
 		}

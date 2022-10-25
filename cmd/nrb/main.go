@@ -14,6 +14,7 @@ import (
 	"strconv"
 )
 
+var envPrefix = "REACT_APP_"
 var sourceDir = "src"
 var entryFileName = "index.tsx"
 var outputDir = "build"
@@ -43,6 +44,18 @@ var envFiles string
 var isSecured = false
 var certFile, keyFile string
 
+var ShRed = "\033[0;31m"
+var ShGreen = "\033[0;32m"
+var ShYellow = "\033[0;33m"
+var ShBlue = "\033[0;34m"
+var ShNc = "\033[0m"
+
+var ERR = ShRed + "×" + ShNc
+var INFO = ShYellow + ">" + ShNc
+var OK = ShGreen + "✓" + ShNc
+var RELOAD = ShBlue + "↻" + ShNc
+var ITEM = "-"
+
 func init() {
 	flag.BoolVar(&isWatch, "w", isWatch, "watch mode")
 	flag.BoolVar(&isBuild, "b", isBuild, "build mode")
@@ -50,8 +63,8 @@ func init() {
 	flag.BoolVar(&isTest, "t", isTest, "test mode")
 	flag.BoolVar(&isMakeCert, "c", isMakeCert, "make cert")
 	flag.BoolVar(&isHelp, "h", isVersion, "help")
-	flag.BoolVar(&isVersion, "v", isHelp, "version")
-	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "version update")
+	flag.BoolVar(&isVersion, "v", isHelp, "app version")
+	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "app version update")
 	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
 	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env for fallback, no overriding)")
 
@@ -67,23 +80,33 @@ func init() {
 			baseDir = ".."
 		}
 	} else {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func main() {
+	if !lib.FileExists(filepath.Join(baseDir, "package.json")) {
+		fmt.Println(ERR, "no", filepath.Join(staticDir, "version.json"), "found")
+		os.Exit(1)
+	}
+
+	if !lib.FileExists(filepath.Join(staticDir, "version.json")) {
+		fmt.Println(ERR, "no", filepath.Join(staticDir, "version.json"), "found")
+		os.Exit(1)
+	}
+
 	flag.Parse()
 	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
 
 	if isHelp {
-		fmt.Println("× No help defined")
-		fmt.Println("> just kidding, run this script with -b to build the app, -w for watch mode, -s to serve build folder, -u to update build number, -t for test's, -v for current build version, -c to make https certificate for dev, -env to set custom .env files, -r to run npm scripts, and -h for this help")
+		fmt.Println(ERR, "No help defined")
+		fmt.Println(INFO, "just kidding, run this script with -b to build the app, -w for watch mode, -s to serve build folder, -u to update build number, -t for test's, -v for current build version, -c to make https certificate for dev, -env to set custom .env files, -r to run npm scripts, and -h for this help")
 		os.Exit(0)
 	}
 
 	if isTest {
-		fmt.Println("× No test's defined")
+		fmt.Println(ERR, "No test's defined")
 		os.Exit(1)
 	}
 
@@ -97,7 +120,7 @@ func main() {
 		os.Mkdir(filepath.Join(baseDir, ".cert"), 0755)
 		cmd := exec.Command("mkcert -key-file " + baseDir + "/.cert/key.pem -cert-file " + baseDir + "/.cert/cert.pem '" + host + "'")
 		if err := cmd.Run(); err != nil {
-			fmt.Println(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -105,39 +128,39 @@ func main() {
 
 	jsonFile, err := os.ReadFile(filepath.Join(staticDir, "version.json"))
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	err = json.Unmarshal(jsonFile, &metaData)
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
 	if isVersion {
-		fmt.Println("✓ Current version number is:", metaData["version"])
+		fmt.Println(OK, "Current version number is:", metaData["version"])
 		os.Exit(0)
 	}
 
 	if isVersionUpdate {
-		fmt.Println("> Incrementing build number...")
+		fmt.Println(INFO, "Incrementing build number...")
 		v, _ := strconv.Atoi(fmt.Sprintf("%v", metaData["version"]))
 		metaData["version"] = v + 1
 
 		j, err := json.Marshal(metaData)
 		if err != nil {
-			fmt.Println(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 
 		err = os.WriteFile(filepath.Join(staticDir, "version.json"), j, 0644)
 		if err != nil {
-			fmt.Println(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 
-		fmt.Println("✓ App version has been updated")
-		fmt.Println("✓ Current version number is:", metaData["version"])
+		fmt.Println(OK, "App version has been updated")
+		fmt.Println(OK, "Current version number is:", metaData["version"])
 		os.Exit(0)
 	}
 

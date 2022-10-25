@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/natrim/nrb/lib"
 	"net/http"
+	"os"
 )
 
 func serve() {
@@ -15,7 +16,7 @@ func serve() {
 	} else {
 		protocol = "http://"
 	}
-	fmt.Printf("> Listening on: %s%s:%d\n", protocol, host, wwwPort)
+	fmt.Printf(INFO+" Listening on: %s%s:%d\n", protocol, host, wwwPort)
 	var err error
 	if isSecured {
 		err = http.ListenAndServeTLS(fmt.Sprintf("%s:%d", host, wwwPort), certFile, keyFile, nil)
@@ -24,6 +25,6 @@ func serve() {
 	}
 
 	if err != nil {
-		fmt.Println(err)
+		_, _ = fmt.Fprintln(os.Stderr, err)
 	}
 }
