@@ -2,15 +2,15 @@ package lib
 
 import (
 	"bytes"
-    "errors"
-    "io"
+	"errors"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
-    "runtime"
-    "strings"
-    "syscall"
+	"runtime"
+	"strings"
+	"syscall"
 )
 
 type neuteredFileSystem struct {
@@ -150,19 +150,23 @@ func FileExists(filename string) bool {
 	return err == nil
 }
 
-// InjectJSCSSToIndex injects js/css import to index.html content, returns bool if injected into content
-func InjectJSCSSToIndex(indexFile []byte, entryFileName, assetsDir string) ([]byte, bool) {
+// InjectVarsIntoIndex injects js/css import to index.html content, returns bool if injected into content
+func InjectVarsIntoIndex(indexFile []byte, entryFileName, assetsDir, publicUrl string) ([]byte, bool) {
 	indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
+	publicUrl = strings.TrimSuffix(publicUrl, "/")
 
 	//inject main js/css if not already in index.html
-	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".css")) {
-		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"preload\" href=\"/"+assetsDir+"/"+indexFileName+".css\" as=\"style\">\n<link rel=\"stylesheet\" href=\"/"+assetsDir+"/"+indexFileName+".css\">\n</head>"), -1)
-		return indexFile, true
+	if !bytes.Contains(indexFile, []byte("/"+assetsDir+"/"+indexFileName+".css")) {
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"preload\" href=\""+publicUrl+"/"+assetsDir+"/"+indexFileName+".css\" as=\"style\">\n<link rel=\"stylesheet\" href=\""+publicUrl+"/"+assetsDir+"/"+indexFileName+".css\">\n</head>"), 1)
 	}
-	if !bytes.Contains(indexFile, []byte(""+assetsDir+"/"+indexFileName+".js")) {
-		indexFile = bytes.Replace(indexFile, []byte("</body>"), []byte("<script type=\"module\" src=\"/"+assetsDir+"/"+indexFileName+".js\"></script>\n</body>"), -1)
-		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"modulepreload\" href=\"/"+assetsDir+"/"+indexFileName+".js\">\n</head>"), -1)
-		return indexFile, true
+	if !bytes.Contains(indexFile, []byte("/"+assetsDir+"/"+indexFileName+".js")) {
+		indexFile = bytes.Replace(indexFile, []byte("</body>"), []byte("<script type=\"module\" src=\""+publicUrl+"/"+assetsDir+"/"+indexFileName+".js\"></script>\n</body>"), 1)
+		indexFile = bytes.Replace(indexFile, []byte("</head>"), []byte("<link rel=\"modulepreload\" href=\""+publicUrl+"/"+assetsDir+"/"+indexFileName+".js\">\n</head>"), 1)
+	}
+
+	// replace %PUBLIC_URL%
+	if bytes.Contains(indexFile, []byte("%PUBLIC_URL%")) {
+		indexFile = bytes.ReplaceAll(indexFile, []byte("%PUBLIC_URL%"), []byte(publicUrl))
 	}
 
 	return indexFile, false
@@ -170,20 +174,20 @@ func InjectJSCSSToIndex(indexFile []byte, entryFileName, assetsDir string) ([]by
 
 // IsErrorAddressAlreadyInUse checks if the error is bind: address already in use OR alternative
 func IsErrorAddressAlreadyInUse(err error) bool {
-    var eOsSyscall *os.SyscallError
-    if !errors.As(err, &eOsSyscall) {
-        return false
-    }
-    var errErrno syscall.Errno // doesn't need a "*" (ptr) because it's already a ptr (uintptr)
-    if !errors.As(eOsSyscall, &errErrno) {
-        return false
-    }
-    if errErrno == syscall.EADDRINUSE {
-        return true
-    }
-    const WSAEADDRINUSE = 10048
-    if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
-        return true
-    }
-    return false
+	var eOsSyscall *os.SyscallError
+	if !errors.As(err, &eOsSyscall) {
+		return false
+	}
+	var errErrno syscall.Errno // doesn't need a "*" (ptr) because it's already a ptr (uintptr)
+	if !errors.As(eOsSyscall, &errErrno) {
+		return false
+	}
+	if errErrno == syscall.EADDRINUSE {
+		return true
+	}
+	const WSAEADDRINUSE = 10048
+	if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
+		return true
+	}
+	return false
 }

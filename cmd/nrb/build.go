@@ -83,7 +83,7 @@ func makeIndex(result *api.BuildResult) {
 	}
 
 	//inject main js/css if not already in index.html
-	indexFile, saveIndexFile := lib.InjectJSCSSToIndex(indexFile, entryFileName, assetsDir)
+	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, entryFileName, assetsDir, publicUrl)
 
 	// find chunks to preload
 	var chunksToPreload []string
@@ -99,7 +99,7 @@ func makeIndex(result *api.BuildResult) {
 
 	if len(chunksToPreload) > 0 {
 		indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
-		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)(/?)%s/%s\.js(["']?)( ?/?)>`, assetsDir, indexFileName))
+		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, strings.TrimSuffix(publicUrl, "/"), assetsDir, indexFileName))
 		saveIndexFile = true
 		var replace [][]byte
 		for _, chunk := range chunksToPreload {

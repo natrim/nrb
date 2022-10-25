@@ -158,12 +158,15 @@ func watch() {
 		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
 				// load the main index file and check if it contains js/css import
-				if request.URL.Path == "/index.html" {
+				if request.URL.Path == "/index.html" || filepath.Ext(request.URL.Path) == "" {
 					if index, err := os.ReadFile(filepath.Join(staticDir, "index.html")); err == nil {
 						writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 						writer.WriteHeader(200)
-						index, _ := lib.InjectJSCSSToIndex(index, entryFileName, assetsDir)
+						index, _ := lib.InjectVarsIntoIndex(index, entryFileName, assetsDir, publicUrl)
 						_, _ = writer.Write(index)
+						return
+					} else {
+						error404(writer, true)
 						return
 					}
 				}
@@ -174,7 +177,7 @@ func watch() {
 		http.HandleFunc("/", fileServer)
 		http.Handle("/esbuild", broker)
 
-		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, wwwPort))
+		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 		if err != nil {
 			if lib.IsErrorAddressAlreadyInUse(err) {
 				socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
@@ -182,14 +185,15 @@ func watch() {
 					_, _ = fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				wwwPort = socket.Addr().(*net.TCPAddr).Port
+				_, _ = fmt.Fprintln(os.Stderr, ERR, "port", port, "is in use")
+				port = socket.Addr().(*net.TCPAddr).Port
 			} else {
 				_, _ = fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
 		}
 
-		fmt.Printf(INFO+" Listening on: %s%s:%d\n", protocol, host, wwwPort)
+		fmt.Printf(INFO+" Listening on: %s%s:%d\n", protocol, host, port)
 
 		if isSecured {
 			err = http.ServeTLS(socket, nil, certFile, keyFile)

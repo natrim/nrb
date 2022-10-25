@@ -22,7 +22,7 @@ var staticDir = "public"
 var assetsDir = "assets"
 var publicUrl = "/"
 var baseDir = "."
-var wwwPort = 3000
+var port = 3000
 var host = "localhost"
 var preloadPathsStartingWith = []string{"node_modules/.pnpm/react@", "node_modules/react/", "src/core/index", "src/index"}
 
@@ -37,6 +37,7 @@ var isVersion = false
 var isVersionUpdate = false
 var isWatch = false
 var isHelp = false
+var useColor = true
 
 var npmRun = ""
 var envFiles string
@@ -44,39 +45,61 @@ var envFiles string
 var isSecured = false
 var certFile, keyFile string
 
-var ShRed = "\033[0;31m"
-var ShGreen = "\033[0;32m"
-var ShYellow = "\033[0;33m"
-var ShBlue = "\033[0;34m"
-var ShNc = "\033[0m"
+const (
+	ShRed    = "\033[0;31m"
+	ShGreen  = "\033[0;32m"
+	ShYellow = "\033[0;33m"
+	ShBlue   = "\033[0;34m"
+	ShNc     = "\033[0m"
+)
 
-var ERR = ShRed + "×" + ShNc
-var INFO = ShYellow + ">" + ShNc
-var OK = ShGreen + "✓" + ShNc
-var RELOAD = ShBlue + "↻" + ShNc
+var ERR = "×"
+var INFO = ">"
+var OK = "✓"
+var RELOAD = "↻"
 var ITEM = "-"
 
 func init() {
-	flag.BoolVar(&isWatch, "w", isWatch, "watch mode")
-	flag.BoolVar(&isBuild, "b", isBuild, "build mode")
-	flag.BoolVar(&isServe, "s", isServe, "serve mode")
-	flag.BoolVar(&isTest, "t", isTest, "test mode")
-	flag.BoolVar(&isMakeCert, "c", isMakeCert, "make cert")
-	flag.BoolVar(&isHelp, "h", isVersion, "help")
-	flag.BoolVar(&isVersion, "v", isHelp, "app version")
-	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "app version update")
-	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
+	//	flag.BoolVar(&isWatch, "w", isWatch, "watch mode")
+	//	flag.BoolVar(&isWatch, "watch", isWatch, "alias of -w")
+	//	flag.BoolVar(&isBuild, "b", isBuild, "build mode")
+	//	flag.BoolVar(&isBuild, "build", isBuild, "alias of -b")
+	//	flag.BoolVar(&isServe, "s", isServe, "serve mode")
+	//	flag.BoolVar(&isServe, "serve", isServe, "alias of -s")
+	//	flag.BoolVar(&isTest, "t", isTest, "test mode")
+	//	flag.BoolVar(&isTest, "test", isTest, "test mode")
+	//	flag.BoolVar(&isMakeCert, "c", isMakeCert, "make cert")
+	flag.BoolVar(&isHelp, "h", isVersion, "alias of -help")
+	flag.BoolVar(&isHelp, "help", isVersion, "this help")
+	//	flag.BoolVar(&isVersion, "v", isHelp, "app version")
+	//	flag.BoolVar(&isVersion, "version", isHelp, "alias of -v")
+	//	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "app version update")
+	//	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
+	//	flag.StringVar(&npmRun, "run", npmRun, "alias of -r")
 	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env for fallback, no overriding)")
+
+	flag.BoolVar(&useColor, "color", useColor, "colorize output")
+
+	flag.StringVar(&envPrefix, "envPrefix", envPrefix, "env variables prefix")
+	flag.StringVar(&sourceDir, "sourceDir", sourceDir, "source directory name")
+	flag.StringVar(&entryFileName, "entryFileName", entryFileName, "entry file name in 'sourceDir'")
+	flag.StringVar(&outputDir, "outputDir", outputDir, "output dir name")
+	flag.StringVar(&staticDir, "staticDir", staticDir, "static dir name")
+	flag.StringVar(&assetsDir, "assetsDir", assetsDir, "assets dir name in output")
+	flag.IntVar(&port, "port", port, "port")
+	flag.StringVar(&host, "host", host, "host")
+	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
 
 	if envFiles == "" && lib.FileExists(filepath.Join(baseDir, ".env.local")) {
 		envFiles = ".env.local"
 	}
 
 	if path, err := os.Getwd(); err == nil {
+		// escape scripts dir
 		if filepath.Base(path) == "scripts" {
-			sourceDir = "../" + sourceDir
-			outputDir = "../" + outputDir
-			staticDir = "../" + staticDir
+			sourceDir = filepath.Join("..", sourceDir)
+			outputDir = filepath.Join("..", outputDir)
+			staticDir = filepath.Join("..", staticDir)
 			baseDir = ".."
 		}
 	} else {
@@ -86,6 +109,56 @@ func init() {
 }
 
 func main() {
+	flag.Parse()
+
+	switch flag.Arg(0) {
+	case "build":
+		isBuild = true
+		break
+	case "watch":
+		isWatch = true
+		break
+	case "serve":
+		isServe = true
+		break
+	case "test":
+		isTest = true
+		break
+	case "cert":
+		isMakeCert = true
+		break
+	case "version":
+		isVersion = true
+		break
+	case "update":
+		isVersionUpdate = true
+		break
+	case "run":
+		npmRun = flag.Arg(1)
+		break
+	case "help":
+		isHelp = true
+		break
+	}
+
+	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
+
+	if useColor {
+		ERR = ShRed + ERR + ShNc
+		INFO = ShYellow + INFO + ShNc
+		OK = ShGreen + OK + ShNc
+		RELOAD = ShBlue + RELOAD + ShNc
+		//ITEM = ShWhite+ITEM+ShNc
+	}
+
+	if isHelp {
+		fmt.Println(ERR, "No help defined")
+		fmt.Println(INFO, "just kidding, run this command with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"test"+ShNc+"' for test's, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for dev, '"+ShYellow+"run"+ShNc+"' to run npm scripts")
+		fmt.Println("Flags:")
+		flag.PrintDefaults()
+		os.Exit(0)
+	}
+
 	if !lib.FileExists(filepath.Join(baseDir, "package.json")) {
 		fmt.Println(ERR, "no", filepath.Join(staticDir, "version.json"), "found")
 		os.Exit(1)
@@ -96,16 +169,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	flag.Parse()
-	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
-
-	if isHelp {
-		fmt.Println(ERR, "No help defined")
-		fmt.Println(INFO, "just kidding, run this script with -b to build the app, -w for watch mode, -s to serve build folder, -u to update build number, -t for test's, -v for current build version, -c to make https certificate for dev, -env to set custom .env files, -r to run npm scripts, and -h for this help")
-		os.Exit(0)
-	}
-
 	if isTest {
+		//TODO: try to run npm test
 		fmt.Println(ERR, "No test's defined")
 		os.Exit(1)
 	}
