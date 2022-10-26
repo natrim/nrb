@@ -7,9 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
-func run() {
+func run(args []string) {
 	jsonFile, err := os.ReadFile(filepath.Join(baseDir, "package.json"))
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
@@ -24,9 +25,10 @@ func run() {
 
 	if scripts, ok := packageJson["scripts"]; ok {
 		if script, ok := scripts.(map[string]any)[npmRun]; ok {
-			cmd := exec.Command("bash", "-c", script.(string))
+			args = append([]string{"-c"}, strings.Join(append([]string{script.(string)}, args...), " "))
+			cmd := exec.Command("bash", args...)
 			if runtime.GOOS == "windows" {
-				cmd = exec.Command("bash.exe", "-c", script.(string))
+				cmd = exec.Command("bash.exe", args...)
 			}
 			cmd.Env = os.Environ()
 			cmd.Stdout = os.Stdout

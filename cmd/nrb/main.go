@@ -31,7 +31,6 @@ var metaData map[string]any
 
 var isBuild = false
 var isServe = false
-var isTest = false
 var isMakeCert = false
 var isVersion = false
 var isVersionUpdate = false
@@ -70,8 +69,6 @@ func init() {
 	//	flag.BoolVar(&isBuild, "build", isBuild, "alias of -b")
 	//	flag.BoolVar(&isServe, "s", isServe, "serve mode")
 	//	flag.BoolVar(&isServe, "serve", isServe, "alias of -s")
-	//	flag.BoolVar(&isTest, "t", isTest, "test mode")
-	//	flag.BoolVar(&isTest, "test", isTest, "test mode")
 	//	flag.BoolVar(&isMakeCert, "c", isMakeCert, "make cert")
 	flag.BoolVar(&isHelp, "h", isVersion, "alias of -help")
 	flag.BoolVar(&isHelp, "help", isVersion, "this help")
@@ -125,9 +122,6 @@ func main() {
 	case "serve":
 		isServe = true
 		break
-	case "test":
-		isTest = true
-		break
 	case "cert":
 		isMakeCert = true
 		break
@@ -145,7 +139,7 @@ func main() {
 		break
 	}
 
-	isHelp = isHelp || (!isBuild && !isServe && !isTest && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
+	isHelp = isHelp || (!isBuild && !isServe && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
 
 	if useColor {
 		ERR = ShRed + ERR + ShNc
@@ -157,7 +151,8 @@ func main() {
 
 	if isHelp {
 		fmt.Println(ERR, "No help defined")
-		fmt.Println(INFO, "just kidding, run this command with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"test"+ShNc+"' for test's, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for dev, '"+ShYellow+"run"+ShNc+"' to run npm scripts")
+		fmt.Println(INFO, "Usage:", ShBlue+os.Args[0]+ShNc, "[flags]", ShYellow+"command"+ShNc)
+		fmt.Println(INFO, "just kidding, run this command with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for watch/serve, '"+ShYellow+"run"+ShNc+"' to run npm scripts")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
 		os.Exit(0)
@@ -173,14 +168,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	if isTest {
-		//TODO: try to run npm test
-		fmt.Println(ERR, "No test's defined")
-		os.Exit(1)
-	}
-
 	if npmRun != "" {
-		run()
+		run(os.Args[3:])
 		os.Exit(0)
 	}
 
