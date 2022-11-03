@@ -57,6 +57,7 @@ var INFO = ">"
 var OK = "✓"
 var RELOAD = "↻"
 var ITEM = "-"
+var DASH = "–"
 
 func init() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
@@ -147,6 +148,7 @@ func main() {
 		OK = ShGreen + OK + ShNc
 		RELOAD = ShBlue + RELOAD + ShNc
 		//ITEM = ShWhite+ITEM+ShNc
+        DASH = ShBlue + DASH + ShNc
 	}
 
 	if isHelp {

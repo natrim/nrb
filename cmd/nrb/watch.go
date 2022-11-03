@@ -100,8 +100,8 @@ func watch() {
 
 	go func() {
 		var (
-			timer     *time.Timer
-			lastEvent fsnotify.Event
+			timer *time.Timer
+			//			lastEvent fsnotify.Event
 		)
 		timer = time.NewTimer(time.Millisecond)
 		<-timer.C
@@ -121,7 +121,10 @@ func watch() {
 				if event.Op == fsnotify.Chmod {
 					continue
 				}
-				lastEvent = event
+				//lastEvent = event
+				if event.Op&fsnotify.Write == fsnotify.Write {
+                    fmt.Printf(DASH+" Change in %s%s\n", sourceDir, strings.TrimPrefix(event.Name, absWalkPath))
+				}
 				timer.Reset(time.Millisecond * 100)
 
 				// add new directories to watcher
@@ -141,7 +144,7 @@ func watch() {
 				}
 				_, _ = fmt.Fprintln(os.Stderr, err)
 			case <-timer.C:
-				fmt.Printf(RELOAD+" Change in %s%s\n", sourceDir, strings.TrimPrefix(lastEvent.Name, absWalkPath))
+				fmt.Printf(RELOAD + " Change detected, reloading...\n")
 				broker.Notifier <- []byte("update")
 			}
 		}
