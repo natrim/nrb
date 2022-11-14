@@ -123,7 +123,7 @@ func watch() {
 				}
 				//lastEvent = event
 				if event.Op&fsnotify.Write == fsnotify.Write {
-                    fmt.Printf(DASH+" Change in %s%s\n", sourceDir, strings.TrimPrefix(event.Name, absWalkPath))
+					fmt.Printf(DASH+" Change in %s%s\n", sourceDir, strings.TrimPrefix(event.Name, absWalkPath))
 				}
 				timer.Reset(time.Millisecond * 100)
 
@@ -160,18 +160,10 @@ func watch() {
 		broker = lib.NewStreamServer()
 		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
-				// load the main index file and check if it contains js/css import
+				//pipe index directly to esbuild to skip loading of index by staticServer
 				if request.URL.Path == "/index.html" || filepath.Ext(request.URL.Path) == "" {
-					if index, err := os.ReadFile(filepath.Join(staticDir, "index.html")); err == nil {
-						writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-						writer.WriteHeader(200)
-						index, _ := lib.InjectVarsIntoIndex(index, entryFileName, assetsDir, publicUrl)
-						_, _ = writer.Write(index)
-						return
-					} else {
-						error404(writer, true)
-						return
-					}
+					pipeRequestToEsbuild(writer, request)
+					return
 				}
 				next(writer, request)
 			}
@@ -235,6 +227,11 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		uri = r.URL.RequestURI()
 	}
 
+	var isIndex bool
+	if uri == "/index.html" {
+		isIndex = true
+	}
+
 	// normalize path prefix
 	uri = strings.TrimPrefix(uri, "/")
 
@@ -250,28 +247,24 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 
 	if resp.StatusCode != 200 {
 		// esbuild errors
-		if resp.StatusCode == http.StatusServiceUnavailable && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+		if isIndex && resp.StatusCode == http.StatusServiceUnavailable && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte(fmt.Sprintf("<!doctype html><meta charset=utf-8><title>error</title><script>%s</script><body><pre>", reloadJS)))
+			_, _ = w.Write([]byte(fmt.Sprintf("<!doctype html><head><meta charset=utf-8><title>error</title><script>%s</script></head><body><pre>", reloadJS)))
 			_, err := io.Copy(w, resp.Body)
 			if err != nil {
 				_, _ = w.Write([]byte("Error: cannot build app"))
 			}
+			_, _ = w.Write([]byte("</pre></body>"))
 			_ = resp.Body.Close()
 			return
 		}
+		_ = resp.Body.Close()
 		error404(w, true)
 		return
 	}
 
-	// copy esbuild headers
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
-	w.Header().Set("Access-Control-Allow-Origin", resp.Header.Get("Access-Control-Allow-Origin"))
-	w.Header().Set("Date", resp.Header.Get("Date"))
-
 	// copy esbuild response
-	_, err = io.Copy(w, resp.Body)
+	readBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		if !errors.Is(err, syscall.EPIPE) {
@@ -279,9 +272,24 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
-	// and close
 	_ = resp.Body.Close()
+
+	// copy esbuild headers
+	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	//	content-length needs to be potentionaly customized
+	w.Header().Set("Access-Control-Allow-Origin", resp.Header.Get("Access-Control-Allow-Origin"))
+	w.Header().Set("Date", resp.Header.Get("Date"))
+
+	// replace custom vars in index.html nad inject js/css scripts from esbuild
+	if isIndex {
+		index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
+		_, _ = w.Write(index)
+		return
+	}
+
+	w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
+	_, _ = w.Write(readBody)
 }
 
 func error404(res http.ResponseWriter, writeHeader bool) {
