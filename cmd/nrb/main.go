@@ -113,6 +113,21 @@ func init() {
 func main() {
 	flag.Parse()
 
+	if useColor {
+		ERR = ShRed + ERR + ShNc
+		INFO = ShYellow + INFO + ShNc
+		OK = ShGreen + OK + ShNc
+		RELOAD = ShBlue + RELOAD + ShNc
+		//ITEM = ShWhite+ITEM+ShNc
+		DASH = ShBlue + DASH + ShNc
+	}
+
+	if flag.NArg() > 1 {
+		fmt.Println(ERR, "use flags before", ShYellow+"command"+ShNc)
+		fmt.Println(INFO, "Usage:", ShBlue+filepath.Base(os.Args[0])+ShNc, "[flags]", ShYellow+"command"+ShNc)
+		os.Exit(1)
+	}
+
 	switch flag.Arg(0) {
 	case "build":
 		isBuild = true
@@ -142,19 +157,9 @@ func main() {
 
 	isHelp = isHelp || (!isBuild && !isServe && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
 
-	if useColor {
-		ERR = ShRed + ERR + ShNc
-		INFO = ShYellow + INFO + ShNc
-		OK = ShGreen + OK + ShNc
-		RELOAD = ShBlue + RELOAD + ShNc
-		//ITEM = ShWhite+ITEM+ShNc
-        DASH = ShBlue + DASH + ShNc
-	}
-
 	if isHelp {
-		fmt.Println(ERR, "No help defined")
-		fmt.Println(INFO, "Usage:", ShBlue+os.Args[0]+ShNc, "[flags]", ShYellow+"command"+ShNc)
-		fmt.Println(INFO, "just kidding, run this command with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for watch/serve, '"+ShYellow+"run"+ShNc+"' to run npm scripts")
+		fmt.Println(INFO, "Usage:", ShBlue+filepath.Base(os.Args[0])+ShNc, "[flags]", ShYellow+"command"+ShNc)
+        fmt.Println(INFO, "use "+ShYellow+"command"+ShNc+" with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for watch/serve, '"+ShYellow+"run"+ShNc+"' to run npm scripts and '"+ShYellow+"help"+ShNc+"' to show this help")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
 		os.Exit(0)
