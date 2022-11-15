@@ -144,7 +144,7 @@ func main() {
 	case "version":
 		isVersion = true
 		break
-	case "update":
+	case "version-update":
 		isVersionUpdate = true
 		break
 	case "run":
@@ -159,7 +159,7 @@ func main() {
 
 	if isHelp {
 		fmt.Println(INFO, "Usage:", ShBlue+filepath.Base(os.Args[0])+ShNc, "[flags]", ShYellow+"command"+ShNc)
-        fmt.Println(INFO, "use "+ShYellow+"command"+ShNc+" with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"update"+ShNc+"' to update build number, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for watch/serve, '"+ShYellow+"run"+ShNc+"' to run npm scripts and '"+ShYellow+"help"+ShNc+"' to show this help")
+		fmt.Println(INFO, "use "+ShYellow+"command"+ShNc+" with '"+ShYellow+"build"+ShNc+"' to build the app, '"+ShYellow+"watch"+ShNc+"' for watch mode, '"+ShYellow+"serve"+ShNc+"' to serve build folder, '"+ShYellow+"version-update"+ShNc+"' to update build number, '"+ShYellow+"version"+ShNc+"' for current build version, '"+ShYellow+"cert"+ShNc+"' to make https certificate for watch/serve, '"+ShYellow+"run"+ShNc+"' to run npm scripts and '"+ShYellow+"help"+ShNc+"' to show this help")
 		fmt.Println("Flags:")
 		flag.PrintDefaults()
 		os.Exit(0)
