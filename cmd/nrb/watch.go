@@ -244,6 +244,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		// esbuild errors
@@ -255,24 +256,11 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 				_, _ = w.Write([]byte("Error: cannot build app"))
 			}
 			_, _ = w.Write([]byte("</pre></body>"))
-			_ = resp.Body.Close()
 			return
 		}
-		_ = resp.Body.Close()
 		error404(w, true)
 		return
 	}
-
-	// copy esbuild response
-	readBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		if !errors.Is(err, syscall.EPIPE) {
-			error404(w, false)
-		}
-		return
-	}
-	_ = resp.Body.Close()
 
 	// copy esbuild headers
 	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
@@ -282,14 +270,31 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 
 	// replace custom vars in index.html nad inject js/css scripts from esbuild
 	if isIndex {
+		// read esbuild response
+		readBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			if !errors.Is(err, syscall.EPIPE) {
+				error404(w, false)
+			}
+			return
+		}
+
 		index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
 		_, _ = w.Write(index)
-		return
+	} else {
+		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
+		// copy esbuild response
+		_, err = io.Copy(w, resp.Body)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			if !errors.Is(err, syscall.EPIPE) {
+				error404(w, false)
+			}
+			return
+		}
 	}
-
-	w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
-	_, _ = w.Write(readBody)
 }
 
 func error404(res http.ResponseWriter, writeHeader bool) {
