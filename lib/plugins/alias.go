@@ -2,12 +2,18 @@ package plugins
 
 import (
 	"github.com/evanw/esbuild/pkg/api"
+	"github.com/natrim/nrb/lib"
 	"strings"
 )
 
 func AliasPlugin(aliases map[string]string) api.Plugin {
+	if len(aliases) == 0 {
+		return api.Plugin{
+			Name: "alias",
+		}
+	}
 	var filter = "^("
-	for alias, _ := range aliases {
+	for alias := range aliases {
 		filter += escapeRegExp(alias) + "|"
 	}
 	filter = strings.TrimSuffix(filter, "|")
@@ -18,7 +24,7 @@ func AliasPlugin(aliases map[string]string) api.Plugin {
 			build.OnResolve(api.OnResolveOptions{Filter: filter},
 				func(args api.OnResolveArgs) (api.OnResolveResult, error) {
 					return api.OnResolveResult{
-						Path: aliases[args.Path],
+						Path: lib.RealQuickPath(aliases[args.Path]),
 					}, nil
 				})
 		},

@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
 
 var envPrefix = "REACT_APP_"
@@ -24,8 +25,11 @@ var publicUrl = "/"
 var baseDir = "."
 var port = 3000
 var host = "localhost"
-var preloadPathsStartingWith = []string{"node_modules/.pnpm/react@", "node_modules/react/", "src/core/index", "src/index"}
-
+var preloadPathsStartingWith = arrayFlags{"node_modules/.pnpm/react@", "node_modules/react/", "src/core/index", "src/index"}
+var aliasModules = mapFlags{
+	"@material-ui/pickers": "node_modules/@material-ui/pickers/dist/material-ui-pickers.js",
+	"@material-ui/core":    "node_modules/@material-ui/core/index.js",
+}
 var buildOptions api.BuildOptions
 var metaData map[string]any
 
@@ -59,6 +63,31 @@ var RELOAD = "↻"
 var ITEM = "-"
 var DASH = "–"
 
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return strings.Join(*i, ",")
+}
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
+type mapFlags map[string]string
+
+func (i *mapFlags) String() string {
+	val := ""
+	for a, p := range *i {
+		val = val + "," + a + ":" + p
+	}
+	return strings.TrimPrefix(val, ",")
+}
+func (i *mapFlags) Set(value string) error {
+	alias := strings.SplitN(value, ":", 2)
+	(*i)[alias[0]] = alias[1]
+	return nil
+}
+
 func init() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flag.CommandLine.Usage = func() {
@@ -91,6 +120,8 @@ func init() {
 	flag.IntVar(&port, "port", port, "port")
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
+    flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags")
+    flag.Var(&aliasModules, "alias", "alias module with 'alias:path', can have multiple flags")
 
 	if envFiles == "" && lib.FileExists(filepath.Join(baseDir, ".env.local")) {
 		envFiles = ".env.local"
@@ -279,11 +310,7 @@ func main() {
 		Define: makeEnv(),
 
 		Plugins: []api.Plugin{
-			// fix old mui
-			plugins.AliasPlugin(map[string]string{
-				"@material-ui/pickers": lib.RealQuickPath(filepath.Join(baseDir, "node_modules/@material-ui/pickers/dist/material-ui-pickers.js")),
-				"@material-ui/core":    lib.RealQuickPath(filepath.Join(baseDir, "node_modules/@material-ui/core/index.js")),
-			}),
+			plugins.AliasPlugin(aliasModules),
 			plugins.InlinePluginDefault(),
 		},
 
