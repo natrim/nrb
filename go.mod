@@ -3,7 +3,7 @@ module github.com/natrim/nrb
 go 1.19
 
 require (
-	github.com/evanw/esbuild v0.15.14
+	github.com/evanw/esbuild v0.15.15
 	github.com/fsnotify/fsnotify v1.5.4
 	github.com/joho/godotenv v1.4.0
 )

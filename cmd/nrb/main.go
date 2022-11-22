@@ -107,7 +107,7 @@ func init() {
 	//	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "app version update")
 	//	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
 	//	flag.StringVar(&npmRun, "run", npmRun, "alias of -r")
-	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env for fallback, no overriding)")
+	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env first)")
 
 	flag.BoolVar(&useColor, "color", useColor, "colorize output")
 
@@ -122,10 +122,6 @@ func init() {
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
     flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags")
     flag.Var(&aliasModules, "alias", "alias module with 'alias:path', can have multiple flags")
-
-	if envFiles == "" && lib.FileExists(filepath.Join(baseDir, ".env.local")) {
-		envFiles = ".env.local"
-	}
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir

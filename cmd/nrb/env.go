@@ -10,18 +10,21 @@ import (
 )
 
 func makeEnv() map[string]string {
-	if !strings.HasSuffix(envFiles, ".env") && lib.FileExists(filepath.Join(baseDir, ".env")) {
-		envFiles += ",.env"
-	}
-
 	envFiles = strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
-
-	fmt.Printf(INFO+" loading .env files: %s\n", envFiles)
-
-	err := godotenv.Load(strings.Split(envFiles, ",")...)
-	if err != nil {
-		fmt.Println(ERR, "Error loading .env file/s:", err)
-		os.Exit(1)
+	if lib.FileExists(filepath.Join(baseDir, ".env")) {
+		if envFiles != "" {
+			envFiles = ".env," + envFiles
+		} else {
+			envFiles = ".env"
+		}
+	}
+	if envFiles != "" {
+		fmt.Printf(INFO+" loading .env file/s: %s\n", envFiles)
+		err := godotenv.Overload(strings.Split(envFiles, ",")...)
+		if err != nil {
+			fmt.Println(ERR, "Error loading .env file/s:", err)
+			os.Exit(1)
+		}
 	}
 
 	var MODE = os.Getenv("NODE_ENV")
