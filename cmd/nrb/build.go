@@ -86,26 +86,28 @@ func makeIndex(result *api.BuildResult) {
 	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, entryFileName, assetsDir, publicUrl)
 
 	// find chunks to preload
-	var chunksToPreload []string
-	for chunk, m := range metafile.Outputs {
-		for i, _ := range m.Inputs {
-			for _, p := range preloadPathsStartingWith {
-				if strings.HasPrefix(i, p) {
-					chunksToPreload = append(chunksToPreload, chunk)
+	if len(preloadPathsStartingWith) > 0 {
+		var chunksToPreload []string
+		for chunk, m := range metafile.Outputs {
+			for i := range m.Inputs {
+				for _, p := range preloadPathsStartingWith {
+					if p != "" && strings.HasPrefix(i, p) {
+						chunksToPreload = append(chunksToPreload, chunk)
+					}
 				}
 			}
 		}
-	}
 
-	if len(chunksToPreload) > 0 {
-		indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
-		findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, strings.TrimSuffix(publicUrl, "/"), assetsDir, indexFileName))
-		saveIndexFile = true
-		var replace [][]byte
-		for _, chunk := range chunksToPreload {
-			replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}${4}%s${5}${6}>`, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
+		if len(chunksToPreload) > 0 {
+			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
+			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, strings.TrimSuffix(publicUrl, "/"), assetsDir, indexFileName))
+			saveIndexFile = true
+			var replace [][]byte
+			for _, chunk := range chunksToPreload {
+				replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}${4}%s${5}${6}>`, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
+			}
+			indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
 		}
-		indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
 	}
 
 	if saveIndexFile {

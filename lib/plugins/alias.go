@@ -9,7 +9,9 @@ import (
 func AliasPlugin(aliases map[string]string) api.Plugin {
 	if len(aliases) == 0 {
 		return api.Plugin{
-			Name: "alias",
+			Name: "alias-stub",
+			Setup: func(build api.PluginBuild) {
+			},
 		}
 	}
 	var filter = "^("

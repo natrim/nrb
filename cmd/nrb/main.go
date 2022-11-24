@@ -25,11 +25,8 @@ var publicUrl = "/"
 var baseDir = "."
 var port = 3000
 var host = "localhost"
-var preloadPathsStartingWith = arrayFlags{"node_modules/.pnpm/react@", "node_modules/react/", "src/core/index", "src/index"}
-var aliasModules = mapFlags{
-	"@material-ui/pickers": "node_modules/@material-ui/pickers/dist/material-ui-pickers.js",
-	"@material-ui/core":    "node_modules/@material-ui/core/index.js",
-}
+var preloadPathsStartingWith arrayFlags
+var aliasModules mapFlags
 var buildOptions api.BuildOptions
 var metaData map[string]any
 
@@ -120,8 +117,8 @@ func init() {
 	flag.IntVar(&port, "port", port, "port")
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
-    flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags")
-    flag.Var(&aliasModules, "alias", "alias module with 'alias:path', can have multiple flags")
+	flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
+	flag.Var(&aliasModules, "alias", "alias module with 'alias:path', can have multiple flags, ie. --alias=react:node_modules/preact/index.js,redux:node_modules/redax/lib/index.js")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -192,9 +189,42 @@ func main() {
 		os.Exit(0)
 	}
 
+	if isMakeCert {
+		_ = os.RemoveAll(filepath.Join(baseDir, ".cert")) //nuke old dir
+		if err := os.Mkdir(filepath.Join(baseDir, ".cert"), 0755); err == nil {
+			cmd := exec.Command("mkcert -key-file " + baseDir + "/.cert/key.pem -cert-file " + baseDir + "/.cert/cert.pem '" + host + "'")
+			if err := cmd.Run(); err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		} else {
+			fmt.Println(ERR, "cannot create \".cert\" dir")
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+
 	if !lib.FileExists(filepath.Join(baseDir, "package.json")) {
-		fmt.Println(ERR, "no", filepath.Join(staticDir, "version.json"), "found")
+		fmt.Println(ERR, "no", filepath.Join(baseDir, "package.json"), "found")
 		os.Exit(1)
+	}
+
+	jsonFile, err := os.ReadFile(filepath.Join(baseDir, "package.json"))
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	var packageJson map[string]any
+	err = json.Unmarshal(jsonFile, &packageJson)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	jsonFile = nil
+
+	if npmRun != "" {
+		run(packageJson, os.Args[3:])
+		os.Exit(0)
 	}
 
 	if !lib.FileExists(filepath.Join(staticDir, "version.json")) {
@@ -202,23 +232,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if npmRun != "" {
-		run(os.Args[3:])
-		os.Exit(0)
-	}
-
-	if isMakeCert {
-		os.RemoveAll(filepath.Join(baseDir, ".cert"))
-		os.Mkdir(filepath.Join(baseDir, ".cert"), 0755)
-		cmd := exec.Command("mkcert -key-file " + baseDir + "/.cert/key.pem -cert-file " + baseDir + "/.cert/cert.pem '" + host + "'")
-		if err := cmd.Run(); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
-	jsonFile, err := os.ReadFile(filepath.Join(staticDir, "version.json"))
+	jsonFile, err = os.ReadFile(filepath.Join(staticDir, "version.json"))
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -228,6 +242,7 @@ func main() {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	jsonFile = nil
 
 	if isVersion {
 		fmt.Println(OK, "Current version number is:", metaData["version"])
@@ -256,6 +271,30 @@ func main() {
 		os.Exit(0)
 	}
 
+	//load alias/preload settings from packageJson
+	if alias, ok := packageJson["alias"]; ok {
+		if _, ok = alias.(map[string]any); ok {
+			aliasModules = make(mapFlags)
+			for name, aliasPath := range alias.(map[string]any) {
+				aliasModules[name] = fmt.Sprintf("%v", aliasPath)
+			}
+		} else {
+			fmt.Println(ERR, "wrong 'alias' key in 'package.json', use object: {alias:path,maybenaother:morepath}")
+			os.Exit(1)
+		}
+	}
+	if preload, ok := packageJson["preload"]; ok {
+		if _, ok = preload.([]any); ok {
+			preloadPathsStartingWith = make(arrayFlags, len(preload.([]any)))
+			for i, pr := range preload.([]any) {
+				preloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
+			}
+		} else {
+			fmt.Println(ERR, "wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
+			os.Exit(1)
+		}
+	}
+
 	if !isSecured && os.Getenv("DEV_SERVER_CERT") != "" {
 		if lib.FileExists(filepath.Join(baseDir, os.Getenv("DEV_SERVER_CERT"))) {
 			certFile = filepath.Join(baseDir, os.Getenv("DEV_SERVER_CERT"))
@@ -273,12 +312,12 @@ func main() {
 	}
 
 	// mime fallbacks
-	mime.AddExtensionType(".webmanifest", "applicaton/json")
-	mime.AddExtensionType(".webp", "image/webp")
-	mime.AddExtensionType(".md", "text/markdown")
-	mime.AddExtensionType(".svg", "image/svg+xml")
-	mime.AddExtensionType(".wasm", "application/wasm")
-	mime.AddExtensionType(".ico", "image/x-icon")
+	_ = mime.AddExtensionType(".webmanifest", "applicaton/json")
+	_ = mime.AddExtensionType(".webp", "image/webp")
+	_ = mime.AddExtensionType(".md", "text/markdown")
+	_ = mime.AddExtensionType(".svg", "image/svg+xml")
+	_ = mime.AddExtensionType(".wasm", "application/wasm")
+	_ = mime.AddExtensionType(".ico", "image/x-icon")
 
 	if isServe {
 		serve()
