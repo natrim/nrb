@@ -26,8 +26,9 @@ var baseDir = "."
 var port = 3000
 var host = "localhost"
 var preloadPathsStartingWith arrayFlags
-var aliasModules mapFlags
+var resolveModules mapFlags
 var buildOptions api.BuildOptions
+var aliasPackages mapFlags
 var metaData map[string]any
 
 var isBuild = false
@@ -118,7 +119,8 @@ func init() {
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
 	flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
-	flag.Var(&aliasModules, "alias", "alias module with 'alias:path', can have multiple flags, ie. --alias=react:node_modules/preact/index.js,redux:node_modules/redax/lib/index.js")
+	flag.Var(&resolveModules, "resolve", "resolve package import with 'package:path', can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
+	flag.Var(&aliasPackages, "alias", "alias package with another 'package:aliasedpackage', can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -271,15 +273,26 @@ func main() {
 		os.Exit(0)
 	}
 
-	//load alias/preload settings from packageJson
+	//load alias/resolve/preload settings from packageJson
 	if alias, ok := packageJson["alias"]; ok {
 		if _, ok = alias.(map[string]any); ok {
-			aliasModules = make(mapFlags)
+			aliasPackages = make(mapFlags)
 			for name, aliasPath := range alias.(map[string]any) {
-				aliasModules[name] = fmt.Sprintf("%v", aliasPath)
+				aliasPackages[name] = fmt.Sprintf("%v", aliasPath)
 			}
 		} else {
-			fmt.Println(ERR, "wrong 'alias' key in 'package.json', use object: {alias:path,maybenaother:morepath}")
+			fmt.Println(ERR, "wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
+			os.Exit(1)
+		}
+	}
+	if resolve, ok := packageJson["resolve"]; ok {
+		if _, ok = resolve.(map[string]any); ok {
+			resolveModules = make(mapFlags)
+			for name, resolvePath := range resolve.(map[string]any) {
+				resolveModules[name] = fmt.Sprintf("%v", resolvePath)
+			}
+		} else {
+			fmt.Println(ERR, "wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
 			os.Exit(1)
 		}
 	}
@@ -341,11 +354,12 @@ func main() {
 		MinifySyntax:      !isWatch,
 		MinifyWhitespace:  !isWatch,
 		Write:             true,
+		Alias:             aliasPackages,
 
 		Define: makeEnv(),
 
 		Plugins: []api.Plugin{
-			plugins.AliasPlugin(aliasModules),
+			plugins.AliasPlugin(resolveModules),
 			plugins.InlinePluginDefault(),
 		},
 

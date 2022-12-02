@@ -1,10 +1,10 @@
 # Strip debug info
-GO_FLAGS += "-ldflags=-s -w"
+GO_FLAGS += -ldflags="-s -w"
 
 # Avoid embedding the build path in the executable for more reproducible builds
 GO_FLAGS += -trimpath
 
-.PHONY: list build vet fmt test update-deps optimize install
+.PHONY: list build vet fmt test update-deps install
 
 list: #list all commands
 	@echo "Commands:" && grep '^[^#[:space:]].*:' Makefile | cut -d'.' -f1 | awk NF | cut -d':' -f1
@@ -24,8 +24,5 @@ test: #do "testing"
 update-deps: #update project deps
 	go get -u ./...
 
-optimize: #strip binary
-	@command -v upx >/dev/null 2>&1 && upx ./nrb* || echo "install 'upx' to PATH"
-
 install: #install project as cli bin
-	go install ./...
+	go install $(GO_FLAGS) ./...
