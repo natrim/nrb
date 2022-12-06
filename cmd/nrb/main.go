@@ -25,11 +25,20 @@ var publicUrl = "/"
 var baseDir = "."
 var port = 3000
 var host = "localhost"
+var assetNames = "media/[name]-[hash]"
+var chunkNames = "chunks/[name]-[hash]"
+var entryNames = "[name]"
 var preloadPathsStartingWith arrayFlags
 var resolveModules mapFlags
 var buildOptions api.BuildOptions
 var aliasPackages mapFlags
 var metaData map[string]any
+
+var jsxMode = "automatic"
+var jsxSideEffects = false
+var jsxImportSource = ""
+var jsxFactory = ""
+var jsxFragment = ""
 
 var isBuild = false
 var isServe = false
@@ -118,7 +127,18 @@ func init() {
 	flag.IntVar(&port, "port", port, "port")
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
-	flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
+
+    flag.StringVar(&assetNames, "assetNames", assetNames, "asset names schema for esbuild")
+	flag.StringVar(&chunkNames, "chunkNames", chunkNames, "chunk names schema for esbuild")
+	flag.StringVar(&entryNames, "entryNames", entryNames, "entry names schema for esbuild")
+
+    flag.StringVar(&jsxFactory, "jsxFactory", jsxFactory, "What to use for JSX instead of \"React.createElement\"")
+    flag.StringVar(&jsxFragment, "jsxFragment", jsxFragment, "What to use for JSX instead of \"React.Fragment\"")
+    flag.StringVar(&jsxImportSource, "jsxImportSource", jsxImportSource, "Override the package name for the automatic runtime (default \"react\")")
+    flag.BoolVar(&jsxSideEffects, "jsxSideEffects", jsxSideEffects, "Do not remove unused JSX expressions")
+    flag.StringVar(&jsxMode, "jsxMode", jsxMode, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
+
+    flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
 	flag.Var(&resolveModules, "resolve", "resolve package import with 'package:path', can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
 	flag.Var(&aliasPackages, "alias", "alias package with another 'package:aliasedpackage', can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
 
@@ -341,9 +361,9 @@ func main() {
 		EntryPoints:       []string{filepath.Join(sourceDir, entryFileName)},
 		Outdir:            filepath.Join(outputDir, assetsDir),
 		PublicPath:        fmt.Sprintf("/%s/", assetsDir), // change in index.html too, needs to be same as above
-		AssetNames:        "media/[name]-[hash]",
-		ChunkNames:        "chunks/[name]-[hash]",
-		EntryNames:        "[name]", // change in index.html too, js and css
+		AssetNames:        assetNames,
+		ChunkNames:        chunkNames,
+		EntryNames:        entryNames,
 		Bundle:            true,
 		Format:            api.FormatESModule,
 		Splitting:         true,
@@ -364,9 +384,24 @@ func main() {
 		},
 
 		// react stuff
-		JSXMode: api.JSXModeAutomatic,
+		// mode is set under this-. JSXMode: api.JSXModeAutomatic,
 		JSXDev:  isWatch,
+        JSXFactory: jsxFactory,
+        JSXFragment: jsxFragment,
+        JSXImportSource: jsxImportSource,
+        JSXSideEffects: jsxSideEffects,
 	}
+
+    if jsxMode == "automatic" {
+        buildOptions.JSXMode = api.JSXModeAutomatic
+    } else if jsxMode == "transform" {
+        buildOptions.JSXMode = api.JSXModeTransform
+    } else if jsxMode == "preserve" {
+        buildOptions.JSXMode = api.JSXModePreserve
+    } else {
+        fmt.Println(ERR, "wrong jsxMode!")
+        os.Exit(1)
+    }
 
 	if isWatch {
 		watch()
