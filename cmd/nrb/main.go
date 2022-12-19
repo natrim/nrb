@@ -32,9 +32,10 @@ var preloadPathsStartingWith arrayFlags
 var resolveModules mapFlags
 var buildOptions api.BuildOptions
 var aliasPackages mapFlags
+var injects arrayFlags
 var metaData map[string]any
 
-var jsxMode = "automatic"
+var jsx = "automatic"
 var jsxSideEffects = false
 var jsxImportSource = ""
 var jsxFactory = ""
@@ -136,11 +137,12 @@ func init() {
     flag.StringVar(&jsxFragment, "jsxFragment", jsxFragment, "What to use for JSX instead of \"React.Fragment\"")
     flag.StringVar(&jsxImportSource, "jsxImportSource", jsxImportSource, "Override the package name for the automatic runtime (default \"react\")")
     flag.BoolVar(&jsxSideEffects, "jsxSideEffects", jsxSideEffects, "Do not remove unused JSX expressions")
-    flag.StringVar(&jsxMode, "jsxMode", jsxMode, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
+    flag.StringVar(&jsx, "jsx", jsx, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
 
     flag.Var(&preloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
 	flag.Var(&resolveModules, "resolve", "resolve package import with 'package:path', can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
 	flag.Var(&aliasPackages, "alias", "alias package with another 'package:aliasedpackage', can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
+    flag.Var(&injects, "inject", "allows you to automatically replace a global variable with an import from another file, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -293,7 +295,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	//load alias/resolve/preload settings from packageJson
+	//load alias/resolve/preload/inject settings from packageJson
 	if alias, ok := packageJson["alias"]; ok {
 		if _, ok = alias.(map[string]any); ok {
 			aliasPackages = make(mapFlags)
@@ -327,6 +329,18 @@ func main() {
 			os.Exit(1)
 		}
 	}
+    if inject, ok := packageJson["inject"]; ok {
+        if _, ok = inject.([]any); ok {
+            injects = make(arrayFlags, len(inject.([]any)))
+            for i, p := range inject.([]any) {
+                injects[i] = fmt.Sprintf("%v", p)
+            }
+        } else {
+            fmt.Println(ERR, "wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
+            os.Exit(1)
+        }
+    }
+
 
 	if !isSecured && os.Getenv("DEV_SERVER_CERT") != "" {
 		if lib.FileExists(filepath.Join(baseDir, os.Getenv("DEV_SERVER_CERT"))) {
@@ -377,6 +391,7 @@ func main() {
 		Alias:             aliasPackages,
 
 		Define: makeEnv(),
+        Inject: injects,
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(resolveModules),
@@ -384,7 +399,7 @@ func main() {
 		},
 
 		// react stuff
-		// mode is set under this-. JSXMode: api.JSXModeAutomatic,
+		// mode is set under this-. JSX: api.JSXAutomatic,
 		JSXDev:  isWatch,
         JSXFactory: jsxFactory,
         JSXFragment: jsxFragment,
@@ -392,14 +407,14 @@ func main() {
         JSXSideEffects: jsxSideEffects,
 	}
 
-    if jsxMode == "automatic" {
-        buildOptions.JSXMode = api.JSXModeAutomatic
-    } else if jsxMode == "transform" {
-        buildOptions.JSXMode = api.JSXModeTransform
-    } else if jsxMode == "preserve" {
-        buildOptions.JSXMode = api.JSXModePreserve
+    if jsx == "automatic" {
+        buildOptions.JSX = api.JSXAutomatic
+    } else if jsx == "transform" {
+        buildOptions.JSX = api.JSXTransform
+    } else if jsx == "preserve" {
+        buildOptions.JSX = api.JSXPreserve
     } else {
-        fmt.Println(ERR, "wrong jsxMode!")
+        fmt.Println(ERR, "wrong \"--jsx\" mode! (allowed: automatic|tranform|preserve)")
         os.Exit(1)
     }
 
