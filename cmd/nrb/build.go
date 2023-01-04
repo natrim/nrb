@@ -130,6 +130,8 @@ func makeIndex(result *api.BuildResult) {
 //	     imports: {
 //	       path: string
 //	       kind: string
+//         external?: boolean
+//         original?: string
 //	     }[]
 //	   }
 //	 }
@@ -157,6 +159,8 @@ type Metadata struct {
 		Imports []struct {
 			Path string `json:"path"`
 			Kind string `json:"kind"`
+            External bool `json:"external"`
+            Original string `json:"original"`
 		} `json:"imports"`
 	} `json:"inputs"`
 	Outputs map[string]struct {
