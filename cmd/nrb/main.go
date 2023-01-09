@@ -49,6 +49,7 @@ var isVersionUpdate = false
 var isWatch = false
 var isHelp = false
 var useColor = true
+var generateMetafile = false
 
 var npmRun = ""
 var envFiles string
@@ -144,6 +145,8 @@ func init() {
 	flag.Var(&resolveModules, "resolve", "resolve package import with 'package:path', can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
 	flag.Var(&aliasPackages, "alias", "alias package with another 'package:aliasedpackage', can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
 	flag.Var(&injects, "inject", "allows you to automatically replace a global variable with an import from another file, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
+
+	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -384,7 +387,8 @@ func main() {
 		TreeShaking: api.TreeShakingDefault, // default shakes if bundle true, or format iife
 		Sourcemap:   api.SourceMapLinked,
 		// moved lower to switch via flag
-        // LegalComments:     api.LegalCommentsLinked,
+		// LegalComments:     api.LegalCommentsLinked,
+		Metafile:          generateMetafile,
 		MinifyIdentifiers: !isWatch,
 		MinifySyntax:      !isWatch,
 		MinifyWhitespace:  !isWatch,

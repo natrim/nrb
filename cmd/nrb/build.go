@@ -59,7 +59,16 @@ func build() {
 	fmt.Println(OK, "Esbuild done")
 	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println(ITEM, "Building index...")
+	if generateMetafile {
+		if err = os.WriteFile(filepath.Join(outputDir, "build-meta.json"), []byte(result.Metafile), 0644); err != nil {
+			fmt.Println(ERR, "Failed to save metafile:", err)
+		}
+		fmt.Println(OK, "Metafile saved to 'build-meta.json'")
+		fmt.Printf(INFO + " use e.g. https://esbuild.github.io/analyze/ to analyze the bundle\n")
+		fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	}
+
+	fmt.Println(ITEM, "Building index.html file...")
 	makeIndex(&result)
 
 	fmt.Println(OK, "Build done")
@@ -123,45 +132,47 @@ func makeIndex(result *api.BuildResult) {
 
 // Metadata is json equivalent of this esbuild metadata interface
 //
-//	interface Metadata {
-//	 inputs: {
-//	   [path: string]: {
-//	     bytes: number
-//	     imports: {
-//	       path: string
-//	       kind: string
-//         external?: boolean
-//         original?: string
-//	     }[]
-//	   }
-//	 }
-//	 outputs: {
-//	   [path: string]: {
-//	     bytes: number
-//	     inputs: {
-//	       [path: string]: {
-//	         bytesInOutput: number
-//	       }
-//	     }
-//	     imports: {
-//	       path: string
-//	       kind: string
-//	     }[]
-//	     exports: string[]
-//	     entryPoint?: string
-//	     cssBundle?: string
-//	   }
-//	 }
-//	}
+//		interface Metadata {
+//		 inputs: {
+//		   [path: string]: {
+//		     bytes: number
+//		     imports: {
+//		       path: string
+//		       kind: string
+//	        external?: boolean
+//	        original?: string
+//		     }[]
+//	        format?: 'cjs' | 'esm'
+//		   }
+//		 }
+//		 outputs: {
+//		   [path: string]: {
+//		     bytes: number
+//		     inputs: {
+//		       [path: string]: {
+//		         bytesInOutput: number
+//		       }
+//		     }
+//		     imports: {
+//		       path: string
+//		       kind: string
+//		     }[]
+//		     exports: string[]
+//		     entryPoint?: string
+//		     cssBundle?: string
+//		   }
+//		 }
+//		}
 type Metadata struct {
 	Inputs map[string]struct {
 		Bytes   float64 `json:"bytes"`
 		Imports []struct {
-			Path string `json:"path"`
-			Kind string `json:"kind"`
-            External bool `json:"external"`
-            Original string `json:"original"`
+			Path     string `json:"path"`
+			Kind     string `json:"kind"`
+			External bool   `json:"external"`
+			Original string `json:"original"`
 		} `json:"imports"`
+		Format string `json:"format"`
 	} `json:"inputs"`
 	Outputs map[string]struct {
 		Bytes  float64 `json:"bytes"`
