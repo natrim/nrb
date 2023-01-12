@@ -117,18 +117,19 @@ func watch() {
 					return
 				}
 				//fmt.Printf("EVENT! %s\n", event.String())
-				// skip only chmod events
+				// skip event that has only chmod operation
 				if event.Op == fsnotify.Chmod {
 					continue
 				}
 				//lastEvent = event
-				if event.Op&fsnotify.Write == fsnotify.Write {
+				// event has write operation
+				if event.Has(fsnotify.Write) {
 					fmt.Printf(DASH+" Change in %s%s\n", sourceDir, strings.TrimPrefix(event.Name, absWalkPath))
 				}
 				timer.Reset(time.Millisecond * 100)
 
-				// add new directories to watcher
-				if event.Op&fsnotify.Create == fsnotify.Create {
+				// add new directories to watcher if event has create operation
+				if event.Has(fsnotify.Create) {
 					stat, err := os.Stat(event.Name)
 					if err == nil && stat.IsDir() {
 						err = filepath.WalkDir(event.Name, watchDir(watcher))
