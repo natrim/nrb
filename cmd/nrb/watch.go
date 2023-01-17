@@ -18,13 +18,14 @@ import (
 )
 
 var proxyPort uint16
-var server api.ServeResult
 var protocol string
 var broker *lib.Broker
 
 var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
 
 func watch() {
+	var err error
+
 	// inject hot reload watcher to js
 	if buildOptions.Banner == nil {
 		buildOptions.Banner = map[string]string{"js": reloadJS}
@@ -36,48 +37,46 @@ func watch() {
 		}
 	}
 
-	done := make(chan bool)
+	// set outdir
+	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
 
-	go func() {
-		buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
-		server, err := api.Serve(api.ServeOptions{
-			Servedir: staticDir,
-			Port:     proxyPort,
-			Host:     host,
-		}, buildOptions)
+	// get esbuild context
+	ctx, ctxerr := api.Context(buildOptions)
+	if ctxerr != nil {
+		_, _ = fmt.Fprintln(os.Stderr, ctxerr.Error())
+		os.Exit(1)
+	}
 
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
+	// start esbuild server
+	server, err := ctx.Serve(api.ServeOptions{
+		Servedir: staticDir,
+		Port:     proxyPort,
+		Host:     host,
+	})
 
-		// sync values used by esbuild to real used ones
-		proxyPort = server.Port
-		// nope- host = server.Host
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 
-		// wait a bit cause
-		time.Sleep(250 * time.Millisecond)
+	// sync values used by esbuild to real used ones
+	proxyPort = server.Port
+	// nope- host = server.Host
 
-		// send to next step
-		done <- true
+	// wait a bit cause stuff
+	time.Sleep(250 * time.Millisecond)
 
-		// wait for esbuild serve to die
-		_ = server.Wait()
+	// schedule esbuild context cleanup
+	defer ctx.Dispose()
 
-		// send next step
-		done <- true
-	}()
-
-	<-done
-	defer server.Stop()
-
-	var err error
-
+	// start file watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
+	// schedule watcher cleanup
 	defer func(watcher *fsnotify.Watcher) {
 		_ = watcher.Close()
 	}(watcher)
@@ -98,6 +97,7 @@ func watch() {
 		os.Exit(1)
 	}
 
+    done := make(chan bool)
 	go func() {
 		var (
 			timer *time.Timer
@@ -106,6 +106,7 @@ func watch() {
 		timer = time.NewTimer(time.Millisecond)
 		<-timer.C
 
+		// send done to main
 		defer func() {
 			done <- true
 		}()
@@ -203,6 +204,7 @@ func watch() {
 		}
 	}()
 
+    // wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
 	<-done
 }
 
