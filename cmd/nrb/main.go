@@ -50,7 +50,7 @@ var isWatch = false
 var isHelp = false
 var useColor = true
 var generateMetafile = false
-
+var tsConfigPath = "tsconfig.json"
 var npmRun = ""
 var envFiles string
 
@@ -147,6 +147,7 @@ func init() {
 	flag.Var(&injects, "inject", "allows you to automatically replace a global variable with an import from another file, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
 
 	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
+	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -385,7 +386,6 @@ func main() {
 		Format:      api.FormatESModule,
 		Splitting:   true,
 		TreeShaking: api.TreeShakingDefault, // default shakes if bundle true, or format iife
-		Sourcemap:   api.SourceMapLinked,
 		// moved lower to switch via flag
 		// LegalComments:     api.LegalCommentsLinked,
 		Metafile:          generateMetafile,
@@ -397,6 +397,9 @@ func main() {
 
 		Define: makeEnv(),
 		Inject: injects,
+
+        Sourcemap:   api.SourceMapLinked,
+        Tsconfig: filepath.Join(baseDir, tsConfigPath),
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(resolveModules),
@@ -439,6 +442,12 @@ func main() {
 		fmt.Println(ERR, "wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
 		os.Exit(1)
 	}
+
+    if useColor {
+        buildOptions.Color = api.ColorIfTerminal
+    } else {
+        buildOptions.Color = api.ColorNever
+    }
 
 	if isWatch {
 		watch()

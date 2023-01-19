@@ -82,13 +82,13 @@ func watch() {
 	}(watcher)
 
 	fmt.Println(INFO, "watching:", sourceDir)
-	tspath := filepath.Join(baseDir, "tsconfig.json")
+	tspath := filepath.Join(baseDir, tsConfigPath)
 	if lib.FileExists(tspath) {
 		if err := watcher.Add(tspath); err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
-		fmt.Println(INFO, "watching:", "tsconfig.json")
+		fmt.Println(INFO, "watching:", tsConfigPath)
 	}
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
@@ -97,7 +97,7 @@ func watch() {
 		os.Exit(1)
 	}
 
-    done := make(chan bool)
+	done := make(chan bool)
 	go func() {
 		var (
 			timer *time.Timer
@@ -204,7 +204,7 @@ func watch() {
 		}
 	}()
 
-    // wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
+	// wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
 	<-done
 }
 
