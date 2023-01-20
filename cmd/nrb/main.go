@@ -398,8 +398,8 @@ func main() {
 		Define: makeEnv(),
 		Inject: injects,
 
-        Sourcemap:   api.SourceMapLinked,
-        Tsconfig: filepath.Join(baseDir, tsConfigPath),
+		Sourcemap: api.SourceMapLinked,
+		Tsconfig:  filepath.Join(baseDir, tsConfigPath),
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(resolveModules),
@@ -443,11 +443,11 @@ func main() {
 		os.Exit(1)
 	}
 
-    if useColor {
-        buildOptions.Color = api.ColorIfTerminal
-    } else {
-        buildOptions.Color = api.ColorNever
-    }
+	if useColor {
+		buildOptions.Color = api.ColorIfTerminal
+	} else {
+		buildOptions.Color = api.ColorNever
+	}
 
 	if isWatch {
 		watch()

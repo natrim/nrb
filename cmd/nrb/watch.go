@@ -40,6 +40,9 @@ func watch() {
 	// set outdir
 	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
 
+	// dont write files on watch
+	buildOptions.Write = false
+
 	// get esbuild context
 	ctx, ctxerr := api.Context(buildOptions)
 	if ctxerr != nil {
