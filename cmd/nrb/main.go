@@ -337,7 +337,7 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		if inject, ok := packageJson["inject"]; ok {
+        if inject, ok := options["inject"]; ok {
 			if _, ok = inject.([]any); ok {
 				injects = make(arrayFlags, len(inject.([]any)))
 				for i, p := range inject.([]any) {
