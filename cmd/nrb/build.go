@@ -44,6 +44,9 @@ func build() {
 	// use metafile
 	buildOptions.Metafile = true
 
+	// make sure to write files on build
+	buildOptions.Write = true
+
 	// esbuild app
 	result := api.Build(buildOptions)
 
@@ -108,12 +111,13 @@ func makeIndex(result *api.BuildResult) {
 		}
 
 		if len(chunksToPreload) > 0 {
+			publicUrl := strings.TrimSuffix(publicUrl, "/")
 			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
-			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, strings.TrimSuffix(publicUrl, "/"), assetsDir, indexFileName))
+			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
 			var replace [][]byte
 			for _, chunk := range chunksToPreload {
-				replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}${4}%s${5}${6}>`, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
+				replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>`, publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
 			}
 			indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
 		}

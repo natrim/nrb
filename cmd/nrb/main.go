@@ -300,49 +300,53 @@ func main() {
 		os.Exit(0)
 	}
 
-	//load alias/resolve/preload/inject settings from packageJson
-	if alias, ok := packageJson["alias"]; ok {
-		if _, ok = alias.(map[string]any); ok {
-			aliasPackages = make(mapFlags)
-			for name, aliasPath := range alias.(map[string]any) {
-				aliasPackages[name] = fmt.Sprintf("%v", aliasPath)
+	// check for alias/resolve/preload/inject options from package.json
+	if packageJsonOptions, ok := packageJson["nrb"]; ok {
+		options := packageJsonOptions.(map[string]any)
+
+		if alias, ok := options["alias"]; ok {
+			if _, ok = alias.(map[string]any); ok {
+				aliasPackages = make(mapFlags)
+				for name, aliasPath := range alias.(map[string]any) {
+					aliasPackages[name] = fmt.Sprintf("%v", aliasPath)
+				}
+			} else {
+				fmt.Println(ERR, "wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
+				os.Exit(1)
 			}
-		} else {
-			fmt.Println(ERR, "wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
-			os.Exit(1)
 		}
-	}
-	if resolve, ok := packageJson["resolve"]; ok {
-		if _, ok = resolve.(map[string]any); ok {
-			resolveModules = make(mapFlags)
-			for name, resolvePath := range resolve.(map[string]any) {
-				resolveModules[name] = fmt.Sprintf("%v", resolvePath)
+		if resolve, ok := options["resolve"]; ok {
+			if _, ok = resolve.(map[string]any); ok {
+				resolveModules = make(mapFlags)
+				for name, resolvePath := range resolve.(map[string]any) {
+					resolveModules[name] = fmt.Sprintf("%v", resolvePath)
+				}
+			} else {
+				fmt.Println(ERR, "wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
+				os.Exit(1)
 			}
-		} else {
-			fmt.Println(ERR, "wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
-			os.Exit(1)
 		}
-	}
-	if preload, ok := packageJson["preload"]; ok {
-		if _, ok = preload.([]any); ok {
-			preloadPathsStartingWith = make(arrayFlags, len(preload.([]any)))
-			for i, pr := range preload.([]any) {
-				preloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
+		if preload, ok := options["preload"]; ok {
+			if _, ok = preload.([]any); ok {
+				preloadPathsStartingWith = make(arrayFlags, len(preload.([]any)))
+				for i, pr := range preload.([]any) {
+					preloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
+				}
+			} else {
+				fmt.Println(ERR, "wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
+				os.Exit(1)
 			}
-		} else {
-			fmt.Println(ERR, "wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
-			os.Exit(1)
 		}
-	}
-	if inject, ok := packageJson["inject"]; ok {
-		if _, ok = inject.([]any); ok {
-			injects = make(arrayFlags, len(inject.([]any)))
-			for i, p := range inject.([]any) {
-				injects[i] = fmt.Sprintf("%v", p)
+		if inject, ok := packageJson["inject"]; ok {
+			if _, ok = inject.([]any); ok {
+				injects = make(arrayFlags, len(inject.([]any)))
+				for i, p := range inject.([]any) {
+					injects[i] = fmt.Sprintf("%v", p)
+				}
+			} else {
+				fmt.Println(ERR, "wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
+				os.Exit(1)
 			}
-		} else {
-			fmt.Println(ERR, "wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
-			os.Exit(1)
 		}
 	}
 
