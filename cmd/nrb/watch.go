@@ -142,6 +142,16 @@ func watch() {
 						}
 					}
 				}
+				// remove old dirs
+				//				if event.Has(fsnotify.Remove) {
+				//					stat, err := os.Stat(event.Name)
+				//					if err == nil && stat.IsDir() {
+				//						err = filepath.WalkDir(event.Name, unwatchDir(watcher))
+				//						if err != nil {
+				//							_, _ = fmt.Fprintln(os.Stderr, err)
+				//						}
+				//					}
+				//				}
 
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -217,12 +227,25 @@ func watchDir(watcher *fsnotify.Watcher) fs.WalkDirFunc {
 		if err != nil {
 			return err
 		}
-		if fi.IsDir() {
+		if fi.IsDir() && fi.Name() != ".git" && fi.Name() != ".svn" && fi.Name() != ".hg" {
 			return watcher.Add(path)
 		}
 		return nil
 	}
 }
+
+// unwatchDir gets run as a walk func, searching for directories to remove from watcher
+//func unwatchDir(watcher *fsnotify.Watcher) fs.WalkDirFunc {
+//	return func(path string, fi os.DirEntry, err error) error {
+//		if err != nil {
+//			return err
+//		}
+//		if fi.IsDir() && fi.Name() != ".git" && fi.Name() != ".svn" && fi.Name() != ".hg" {
+//			return watcher.Remove(path)
+//		}
+//		return nil
+//	}
+//}
 
 func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	var uri string
