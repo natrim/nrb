@@ -3,9 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/evanw/esbuild/pkg/api"
-	"github.com/fsnotify/fsnotify"
-	"github.com/natrim/nrb/lib"
 	"io"
 	"io/fs"
 	"net"
@@ -15,6 +12,10 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/evanw/esbuild/pkg/api"
+	"github.com/fsnotify/fsnotify"
+	"github.com/natrim/nrb/lib"
 )
 
 var proxyPort uint16
@@ -85,14 +86,23 @@ func watch() {
 	}(watcher)
 
 	fmt.Println(INFO, "watching:", sourceDir)
-	tspath := filepath.Join(baseDir, tsConfigPath)
-	if lib.FileExists(tspath) {
-		if err := watcher.Add(tspath); err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println(INFO, "watching:", tsConfigPath)
-	}
+	// TODO: add back tsconfig package after there is full reload as just reloading esbuild does not reload these!!
+	//	tspath := filepath.Join(baseDir, tsConfigPath)
+	//	if lib.FileExists(tspath) {
+	//		if err := watcher.Add(tspath); err != nil {
+	//			_, _ = fmt.Fprintln(os.Stderr, err)
+	//			os.Exit(1)
+	//		}
+	//		fmt.Println(INFO, "watching:", tsConfigPath)
+	//	}
+	//	pckpath := filepath.Join(baseDir, "package.json")
+	//	if lib.FileExists(pckpath) {
+	//		if err := watcher.Add(pckpath); err != nil {
+	//			_, _ = fmt.Fprintln(os.Stderr, err)
+	//			os.Exit(1)
+	//		}
+	//		fmt.Println(INFO, "watching:", "package.json")
+	//	}
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
@@ -128,7 +138,7 @@ func watch() {
 				//lastEvent = event
 				// event has write operation
 				if event.Has(fsnotify.Write) {
-					fmt.Printf(DASH+" Change in %s%s\n", sourceDir, strings.TrimPrefix(event.Name, absWalkPath))
+					fmt.Printf(DASH+" Change in %s/%s\n", sourceDir, strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/"))
 				}
 				timer.Reset(time.Millisecond * 100)
 
