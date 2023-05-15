@@ -4,15 +4,16 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/evanw/esbuild/pkg/api"
-	"github.com/natrim/nrb/lib"
-	"github.com/natrim/nrb/lib/plugins"
 	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/evanw/esbuild/pkg/api"
+	"github.com/natrim/nrb/lib"
+	"github.com/natrim/nrb/lib/plugins"
 )
 
 var envPrefix = "REACT_APP_"
@@ -56,6 +57,9 @@ var envFiles string
 
 var isSecured = false
 var certFile, keyFile string
+
+var inlineSize int64
+var inlineExtensions []string
 
 const (
 	ShRed    = "\033[0;31m"
@@ -102,20 +106,8 @@ func init() {
 	flag.CommandLine.Usage = func() {
 		// nothing, app will print it's stuff
 	}
-	//	flag.BoolVar(&isWatch, "w", isWatch, "watch mode")
-	//	flag.BoolVar(&isWatch, "watch", isWatch, "alias of -w")
-	//	flag.BoolVar(&isBuild, "b", isBuild, "build mode")
-	//	flag.BoolVar(&isBuild, "build", isBuild, "alias of -b")
-	//	flag.BoolVar(&isServe, "s", isServe, "serve mode")
-	//	flag.BoolVar(&isServe, "serve", isServe, "alias of -s")
-	//	flag.BoolVar(&isMakeCert, "c", isMakeCert, "make cert")
-	flag.BoolVar(&isHelp, "h", isVersion, "alias of -help")
-	flag.BoolVar(&isHelp, "help", isVersion, "this help")
-	//	flag.BoolVar(&isVersion, "v", isHelp, "app version")
-	//	flag.BoolVar(&isVersion, "version", isHelp, "alias of -v")
-	//	flag.BoolVar(&isVersionUpdate, "u", isVersionUpdate, "app version update")
-	//	flag.StringVar(&npmRun, "r", npmRun, "npm run but faster")
-	//	flag.StringVar(&npmRun, "run", npmRun, "alias of -r")
+	flag.BoolVar(&isHelp, "h", isHelp, "alias of -help")
+	flag.BoolVar(&isHelp, "help", isHelp, "this help")
 	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env first)")
 
 	flag.BoolVar(&useColor, "color", useColor, "colorize output")
@@ -348,6 +340,23 @@ func main() {
 				os.Exit(1)
 			}
 		}
+		if inline, ok := options["inline"]; ok {
+			if inlineSz, ok := inline.(map[string]any)["size"]; ok {
+				t, _ := strconv.Atoi(fmt.Sprintf("%v", inlineSz))
+				inlineSize = int64(t)
+			}
+			if inlineExts, ok := inline.(map[string]any)["extensions"]; ok {
+				if _, ok = inlineExts.([]any); ok {
+					inlineExtensions = make(arrayFlags, len(inlineExts.([]any)))
+					for i, pr := range inlineExts.([]any) {
+						inlineExtensions[i] = fmt.Sprintf("%v", pr)
+					}
+				} else {
+					fmt.Println(ERR, "wrong 'inline.extensions' key in 'package.json', use array: [jpg,png,other_extension]")
+					os.Exit(1)
+				}
+			}
+		}
 	}
 
 	if !isSecured && os.Getenv("DEV_SERVER_CERT") != "" {
@@ -407,7 +416,7 @@ func main() {
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(resolveModules),
-			plugins.InlinePluginDefault(),
+			plugins.InlinePlugin(inlineSize, inlineExtensions),
 		},
 
 		// react stuff
