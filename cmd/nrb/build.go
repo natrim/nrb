@@ -4,23 +4,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/evanw/esbuild/pkg/api"
-	"github.com/natrim/nrb/lib"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/evanw/esbuild/pkg/api"
+	"github.com/natrim/nrb/lib"
 )
 
-func build() {
+func build() int {
 	start := time.Now()
 
 	// remove output directory
 	err := os.RemoveAll(outputDir)
 	if err != nil {
 		fmt.Println(ERR, "Failed to clean build directory:", err)
-		return
+		return 1
 	}
 	// dont remake as we make copy of static dir:
 	// os.MkdirAll(outputDir, 0755)
@@ -32,7 +33,7 @@ func build() {
 	err = lib.CopyDir(outputDir, staticDir)
 	if err != nil {
 		fmt.Println(ERR, "Failed to copy static directory:", err)
-		return
+		return 1
 	}
 
 	fmt.Println(OK, "Copied static files to output dir")
@@ -56,7 +57,7 @@ func build() {
 		for _, err := range result.Errors {
 			fmt.Println("-*-", err.Text)
 		}
-		os.Exit(1)
+		return 1
 	}
 
 	fmt.Println(OK, "Esbuild done")
@@ -72,26 +73,30 @@ func build() {
 	}
 
 	fmt.Println(ITEM, "Building index.html file...")
-	makeIndex(&result)
-
+	ret := makeIndex(&result)
+	if ret != 0 {
+		return ret
+	}
 	fmt.Println(OK, "Build done")
 	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 
 	fmt.Println(OK, " All work done 🎂")
+
+	return 0
 }
 
-func makeIndex(result *api.BuildResult) {
+func makeIndex(result *api.BuildResult) int {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {
 		fmt.Println(ERR, "Failed to parse build metadata:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
 	if err != nil {
 		fmt.Println(ERR, "Failed to read build index.html:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	//inject main js/css if not already in index.html
@@ -127,11 +132,13 @@ func makeIndex(result *api.BuildResult) {
 		err = os.WriteFile(filepath.Join(outputDir, "index.html"), indexFile, 0644)
 		if err != nil {
 			fmt.Println(ERR, "Failed to write build index.html:", err)
-			os.Exit(1)
+			return 1
 		}
 	} else {
 		fmt.Println(ITEM, "No changes to index.html")
 	}
+
+	return 0
 }
 
 // Metadata is json equivalent of this esbuild metadata interface

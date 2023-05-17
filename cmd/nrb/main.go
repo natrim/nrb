@@ -52,6 +52,7 @@ var isHelp = false
 var useColor = true
 var generateMetafile = false
 var tsConfigPath = "tsconfig.json"
+var versionPath = "version.json"
 var npmRun = ""
 var envFiles string
 
@@ -140,6 +141,7 @@ func init() {
 
 	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
+	flag.StringVar(&versionPath, "versionfile", versionPath, "path to version.json, relative to current work directory")
 
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
@@ -244,16 +246,15 @@ func main() {
 	jsonFile = nil
 
 	if npmRun != "" {
-		run(packageJson, os.Args[3:])
-		os.Exit(0)
+		os.Exit(run(packageJson, os.Args[3:]))
 	}
 
-	if !lib.FileExists(filepath.Join(staticDir, "version.json")) {
-		fmt.Println(ERR, "no", filepath.Join(staticDir, "version.json"), "found")
+	if !lib.FileExists(filepath.Join(staticDir, versionPath)) {
+		fmt.Println(ERR, "no", filepath.Join(staticDir, versionPath), "found")
 		os.Exit(1)
 	}
 
-	jsonFile, err = os.ReadFile(filepath.Join(staticDir, "version.json"))
+	jsonFile, err = os.ReadFile(filepath.Join(staticDir, versionPath))
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -266,30 +267,11 @@ func main() {
 	jsonFile = nil
 
 	if isVersion {
-		fmt.Println(OK, "Current version number is:", metaData["version"])
-		os.Exit(0)
+		os.Exit(version(false))
 	}
 
 	if isVersionUpdate {
-		fmt.Println(INFO, "Incrementing build number...")
-		v, _ := strconv.Atoi(fmt.Sprintf("%v", metaData["version"]))
-		metaData["version"] = v + 1
-
-		j, err := json.Marshal(metaData)
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		err = os.WriteFile(filepath.Join(staticDir, "version.json"), j, 0644)
-		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-
-		fmt.Println(OK, "App version has been updated")
-		fmt.Println(OK, "Current version number is:", metaData["version"])
-		os.Exit(0)
+		os.Exit(version(true))
 	}
 
 	// check for alias/resolve/preload/inject options from package.json
@@ -384,8 +366,7 @@ func main() {
 	_ = mime.AddExtensionType(".ico", "image/x-icon")
 
 	if isServe {
-		serve()
-		os.Exit(0)
+		os.Exit(serve())
 	}
 
 	buildOptions = api.BuildOptions{
@@ -463,12 +444,10 @@ func main() {
 	}
 
 	if isWatch {
-		watch()
-		os.Exit(0)
+		os.Exit(watch())
 	}
 
 	if isBuild {
-		build()
-		os.Exit(0)
+		os.Exit(build())
 	}
 }

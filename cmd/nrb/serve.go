@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/natrim/nrb/lib"
 	"net"
 	"net/http"
 	"os"
+
+	"github.com/natrim/nrb/lib"
 )
 
-func serve() {
+func serve() int {
 	fileServer := lib.WrappedFileServer(outputDir)
 	http.Handle("/", fileServer)
 	var protocol string
@@ -24,13 +25,13 @@ func serve() {
 			socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
 			if err != nil {
 				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
+				return 1
 			}
 			_, _ = fmt.Fprintln(os.Stderr, ERR, "port", port, "is in use")
 			port = socket.Addr().(*net.TCPAddr).Port
 		} else {
 			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return 1
 		}
 	}
 
@@ -44,5 +45,8 @@ func serve() {
 
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
+
+	return 0
 }

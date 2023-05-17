@@ -24,7 +24,7 @@ var broker *lib.Broker
 
 var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
 
-func watch() {
+func watch() int {
 	var err error
 
 	// inject hot reload watcher to js
@@ -48,7 +48,7 @@ func watch() {
 	ctx, ctxerr := api.Context(buildOptions)
 	if ctxerr != nil {
 		_, _ = fmt.Fprintln(os.Stderr, ctxerr.Error())
-		os.Exit(1)
+		return 1
 	}
 
 	// start esbuild server
@@ -60,7 +60,7 @@ func watch() {
 
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
 
 	// sync values used by esbuild to real used ones
@@ -77,7 +77,7 @@ func watch() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
 
 	// schedule watcher cleanup
@@ -91,7 +91,7 @@ func watch() {
 	//	if lib.FileExists(tspath) {
 	//		if err := watcher.Add(tspath); err != nil {
 	//			_, _ = fmt.Fprintln(os.Stderr, err)
-	//			os.Exit(1)
+	//			return 1
 	//		}
 	//		fmt.Println(INFO, "watching:", tsConfigPath)
 	//	}
@@ -99,7 +99,7 @@ func watch() {
 	//	if lib.FileExists(pckpath) {
 	//		if err := watcher.Add(pckpath); err != nil {
 	//			_, _ = fmt.Fprintln(os.Stderr, err)
-	//			os.Exit(1)
+	//			return 1
 	//		}
 	//		fmt.Println(INFO, "watching:", "package.json")
 	//	}
@@ -107,7 +107,7 @@ func watch() {
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return 1
 	}
 
 	done := make(chan bool)
@@ -203,13 +203,15 @@ func watch() {
 				socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
 				if err != nil {
 					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					done <- false
+					return
 				}
 				_, _ = fmt.Fprintln(os.Stderr, ERR, "port", port, "is in use")
 				port = socket.Addr().(*net.TCPAddr).Port
 			} else {
 				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
+				done <- false
+				return
 			}
 		}
 
@@ -223,12 +225,17 @@ func watch() {
 
 		if !errors.Is(err, http.ErrServerClosed) {
 			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			done <- false
+			return
 		}
 	}()
 
 	// wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
-	<-done
+	ret := <-done
+	if !ret {
+		return 1
+	}
+	return 0
 }
 
 // watchDir gets run as a walk func, searching for directories to add watchers to
