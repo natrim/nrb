@@ -35,7 +35,7 @@ var buildOptions api.BuildOptions
 var aliasPackages mapFlags
 var injects arrayFlags
 var metaData map[string]any
-var legalComments = "linked"
+var legalComments = "eof"
 var jsx = "automatic"
 var jsxSideEffects = false
 var jsxImportSource = ""
