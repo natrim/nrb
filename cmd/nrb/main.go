@@ -54,6 +54,7 @@ var generateMetafile = false
 var tsConfigPath = "tsconfig.json"
 var versionPath = "version.json"
 var npmRun = ""
+var customBrowserTarget = ""
 var envFiles string
 
 var isSecured = false
@@ -122,6 +123,8 @@ func init() {
 	flag.IntVar(&port, "port", port, "port")
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
+
+	flag.StringVar(&customBrowserTarget, "target", customBrowserTarget, "custom browser target, overrides the one form tsconfig")
 
 	flag.StringVar(&assetNames, "assetNames", assetNames, "asset names schema for esbuild")
 	flag.StringVar(&chunkNames, "chunkNames", chunkNames, "chunk names schema for esbuild")
@@ -369,7 +372,68 @@ func main() {
 		os.Exit(serve())
 	}
 
+	browserTarget := api.DefaultTarget
+
+	if customBrowserTarget != "" {
+		jsonFile, err = os.ReadFile(filepath.Join(baseDir, tsConfigPath))
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+		} else {
+			var tsconfigJson map[string]any
+			err = json.Unmarshal(jsonFile, &tsconfigJson)
+			if err != nil {
+				_, _ = fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+			jsonFile = nil
+
+			customBrowserTarget = tsconfigJson["compilerOptions"].(map[string]any)["target"].(string)
+		}
+	}
+
+	if customBrowserTarget != "" {
+		switch customBrowserTarget {
+		case "ES2015", "es2015", "Es2015":
+			browserTarget = api.ES2015
+			break
+		case "ES2016", "es2016", "Es2016":
+			browserTarget = api.ES2016
+			break
+		case "ES2017", "es2017", "Es2017":
+			browserTarget = api.ES2017
+			break
+		case "ES2018", "es2018", "Es2018":
+			browserTarget = api.ES2018
+			break
+		case "ES2019", "es2019", "Es2019":
+			browserTarget = api.ES2019
+			break
+		case "ES2020", "es2020", "Es2020":
+			browserTarget = api.ES2020
+			break
+		case "ES2021", "es2021", "Es2021":
+			browserTarget = api.ES2021
+			break
+		case "ES2022", "es2022", "Es2022":
+			browserTarget = api.ES2022
+			break
+		case "ESNEXT", "esnext", "ESNext", "ESnext":
+			browserTarget = api.ESNext
+			break
+		case "ES5", "es5", "Es5":
+			browserTarget = api.ES5
+			break
+		case "ES6", "es6", "Es6":
+			browserTarget = api.ES2015
+			break
+		default:
+			fmt.Printf(ERR+"Unsupported \"%s\" target!\n", customBrowserTarget)
+			os.Exit(1)
+		}
+	}
+
 	buildOptions = api.BuildOptions{
+		Target:      browserTarget,
 		EntryPoints: []string{filepath.Join(sourceDir, entryFileName)},
 		Outdir:      filepath.Join(outputDir, assetsDir),
 		PublicPath:  fmt.Sprintf("/%s/", assetsDir), // change in index.html too, needs to be same as above
