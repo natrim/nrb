@@ -74,13 +74,13 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// send wait
 	go func(rw http.ResponseWriter) {
 		time.Sleep(time.Millisecond * 100)
-		rw.Write([]byte("retry: 10000\n\n"))
+		_, _ = rw.Write([]byte("retry: 10000\n\n"))
 	}(rw)
 
 	for {
 		// Write to the ResponseWriter
 		// Server Sent Events compatible
-		fmt.Fprintf(rw, "data: %s\n\n", <-messageChan)
+		_, _ = fmt.Fprintf(rw, "data: %s\n\n", <-messageChan)
 
 		// Flush the data immediately instead of buffering it for later.
 		flusher.Flush()
@@ -103,7 +103,7 @@ func (broker *Broker) listen() {
 		case event := <-broker.Notifier:
 			// We got a new event from the outside!
 			// Send event to all connected clients
-			for clientMessageChan, _ := range broker.clients {
+			for clientMessageChan := range broker.clients {
 				clientMessageChan <- event
 			}
 		}

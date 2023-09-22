@@ -181,28 +181,20 @@ func main() {
 	switch flag.Arg(0) {
 	case "build":
 		isBuild = true
-		break
 	case "watch":
 		isWatch = true
-		break
 	case "serve":
 		isServe = true
-		break
 	case "cert":
 		isMakeCert = true
-		break
 	case "version":
 		isVersion = true
-		break
 	case "version-update":
 		isVersionUpdate = true
-		break
 	case "run":
 		npmRun = flag.Arg(1)
-		break
 	case "help":
 		isHelp = true
-		break
 	}
 
 	isHelp = isHelp || (!isBuild && !isServe && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
@@ -395,37 +387,26 @@ func main() {
 		switch customBrowserTarget {
 		case "ES2015", "es2015", "Es2015":
 			browserTarget = api.ES2015
-			break
 		case "ES2016", "es2016", "Es2016":
 			browserTarget = api.ES2016
-			break
 		case "ES2017", "es2017", "Es2017":
 			browserTarget = api.ES2017
-			break
 		case "ES2018", "es2018", "Es2018":
 			browserTarget = api.ES2018
-			break
 		case "ES2019", "es2019", "Es2019":
 			browserTarget = api.ES2019
-			break
 		case "ES2020", "es2020", "Es2020":
 			browserTarget = api.ES2020
-			break
 		case "ES2021", "es2021", "Es2021":
 			browserTarget = api.ES2021
-			break
 		case "ES2022", "es2022", "Es2022":
 			browserTarget = api.ES2022
-			break
 		case "ESNEXT", "esnext", "ESNext", "ESnext":
 			browserTarget = api.ESNext
-			break
 		case "ES5", "es5", "Es5":
 			browserTarget = api.ES5
-			break
 		case "ES6", "es6", "Es6":
 			browserTarget = api.ES2015
-			break
 		default:
 			fmt.Printf(ERR+"Unsupported \"%s\" target!\n", customBrowserTarget)
 			os.Exit(1)

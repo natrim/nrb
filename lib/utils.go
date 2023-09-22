@@ -24,6 +24,11 @@ func (nfs neuteredFileSystem) Open(path string) (http.File, error) {
 	}
 
 	s, err := f.Stat()
+
+	if err != nil {
+		return nil, err
+	}
+
 	if s.IsDir() {
 		index := filepath.Join(path, "index.html")
 		if _, err := nfs.fs.Open(index); err != nil {
@@ -190,7 +195,7 @@ func IsErrorAddressAlreadyInUse(err error) bool {
 	if !errors.As(eOsSyscall, &errErrno) {
 		return false
 	}
-	if errErrno == syscall.EADDRINUSE {
+	if errors.Is(errErrno, syscall.EADDRINUSE) {
 		return true
 	}
 	const WSAEADDRINUSE = 10048

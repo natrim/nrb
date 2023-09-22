@@ -70,6 +70,11 @@ func Realpath(fpath string) (string, error) {
 
 				var link string
 				link, err = os.Readlink(string(c))
+
+				if err != nil {
+					return "", err
+				}
+
 				after := string(path[len(c):])
 
 				// switch symlink component with its real path

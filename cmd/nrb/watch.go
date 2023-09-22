@@ -112,11 +112,7 @@ func watch() int {
 
 	done := make(chan bool)
 	go func() {
-		var (
-			timer *time.Timer
-			//			lastEvent fsnotify.Event
-		)
-		timer = time.NewTimer(time.Millisecond)
+		timer := time.NewTimer(time.Millisecond)
 		<-timer.C
 
 		// send done to main
