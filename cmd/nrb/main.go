@@ -124,7 +124,7 @@ func init() {
 	flag.StringVar(&host, "host", host, "host")
 	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
 
-	flag.StringVar(&customBrowserTarget, "target", customBrowserTarget, "custom browser target, overrides the one form tsconfig")
+	flag.StringVar(&customBrowserTarget, "target", customBrowserTarget, "custom browser target, defaults to tsconfig target if possible, else esnext")
 
 	flag.StringVar(&assetNames, "assetNames", assetNames, "asset names schema for esbuild")
 	flag.StringVar(&chunkNames, "chunkNames", chunkNames, "chunk names schema for esbuild")
