@@ -1,11 +1,11 @@
 module github.com/natrim/nrb
 
-go 1.20
+go 1.21
 
 require (
-	github.com/evanw/esbuild v0.19.3
-	github.com/fsnotify/fsnotify v1.6.0
-	github.com/joho/godotenv v1.4.0
+	github.com/evanw/esbuild v0.20.1
+	github.com/fsnotify/fsnotify v1.7.0
+	github.com/joho/godotenv v1.5.1
 )
 
-require golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
+require golang.org/x/sys v0.12.0 // indirect

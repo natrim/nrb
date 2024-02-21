@@ -461,7 +461,7 @@ func main() {
 	} else if jsx == "preserve" {
 		buildOptions.JSX = api.JSXPreserve
 	} else {
-		fmt.Println(ERR, "wrong \"--jsx\" mode! (allowed: automatic|tranform|preserve)")
+		fmt.Println(ERR, "wrong \"--jsx\" mode! (allowed: automatic|transform|preserve)")
 		os.Exit(1)
 	}
 
