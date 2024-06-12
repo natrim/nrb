@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"mime"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,10 +44,11 @@ var jsxFragment = ""
 var isBuild = false
 var isServe = false
 var isMakeCert = false
-var isVersion = false
+var isVersionGet = false
 var isVersionUpdate = false
 var isWatch = false
 var isHelp = false
+var isVersion = false
 var useColor = true
 var generateMetafile = false
 var tsConfigPath = "tsconfig.json"
@@ -108,6 +108,8 @@ func init() {
 	flag.CommandLine.Usage = func() {
 		// nothing, app will print it's stuff
 	}
+	flag.BoolVar(&isVersion, "version", isVersion, "nrb version number")
+	flag.BoolVar(&isVersion, "v", isVersion, "alias of -version")
 	flag.BoolVar(&isHelp, "h", isHelp, "alias of -help")
 	flag.BoolVar(&isHelp, "help", isHelp, "this help")
 	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env first)")
@@ -188,7 +190,7 @@ func main() {
 	case "cert":
 		isMakeCert = true
 	case "version":
-		isVersion = true
+		isVersionGet = true
 	case "version-update":
 		isVersionUpdate = true
 	case "run":
@@ -197,7 +199,7 @@ func main() {
 		isHelp = true
 	}
 
-	isHelp = isHelp || (!isBuild && !isServe && !isMakeCert && !isVersion && !isVersionUpdate && !isWatch && npmRun == "")
+	isHelp = isHelp || (!isVersion && !isBuild && !isServe && !isMakeCert && !isVersionGet && !isVersionUpdate && !isWatch && npmRun == "")
 
 	if isHelp {
 		fmt.Println(INFO, "Usage:", ShBlue+filepath.Base(os.Args[0])+ShNc, "[flags]", ShYellow+"command"+ShNc)
@@ -207,19 +209,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	if isMakeCert {
-		_ = os.RemoveAll(filepath.Join(baseDir, ".cert")) //nuke old dir
-		if err := os.Mkdir(filepath.Join(baseDir, ".cert"), 0755); err == nil {
-			cmd := exec.Command("mkcert -key-file " + baseDir + "/.cert/key.pem -cert-file " + baseDir + "/.cert/cert.pem '" + host + "'")
-			if err := cmd.Run(); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				os.Exit(1)
-			}
-		} else {
-			fmt.Println(ERR, "cannot create \".cert\" dir")
-			os.Exit(1)
-		}
+	if isVersion {
+		fmt.Println(INFO, "NRB version is:", ShYellow+lib.Version+ShNc)
 		os.Exit(0)
+	}
+
+	if isMakeCert {
+		os.Exit(mkcert())
 	}
 
 	if !lib.FileExists(filepath.Join(baseDir, "package.json")) {
@@ -261,7 +257,7 @@ func main() {
 	}
 	jsonFile = nil
 
-	if isVersion {
+	if isVersionGet {
 		os.Exit(version(false))
 	}
 
@@ -401,6 +397,8 @@ func main() {
 			browserTarget = api.ES2021
 		case "ES2022", "es2022", "Es2022":
 			browserTarget = api.ES2022
+		case "ES2023", "es2023", "Es2023":
+			browserTarget = api.ES2023
 		case "ESNEXT", "esnext", "ESNext", "ESnext":
 			browserTarget = api.ESNext
 		case "ES5", "es5", "Es5":

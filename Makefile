@@ -1,5 +1,11 @@
-# Strip debug info
-GO_FLAGS += -ldflags="-s -w"
+
+# Set lib.Version variable with current hash
+PACKAGE := github.com/natrim/nrb
+VERSION := $(shell git rev-parse --short HEAD)
+LDFLAGS := -X '$(PACKAGE)/lib.Version=$(VERSION)'
+
+# Strip debug info (-s -w)
+GO_FLAGS += -ldflags="$(LDFLAGS) -s -w"
 
 # Avoid embedding the build path in the executable for more reproducible builds
 GO_FLAGS += -trimpath
