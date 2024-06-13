@@ -24,7 +24,7 @@ var broker *lib.Broker
 
 var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
 
-func watch() int {
+func watch() error {
 	var err error
 
 	// inject hot reload watcher to js
@@ -47,8 +47,7 @@ func watch() int {
 	// get esbuild context
 	ctx, ctxerr := api.Context(buildOptions)
 	if ctxerr != nil {
-		_, _ = fmt.Fprintln(os.Stderr, ctxerr.Error())
-		return 1
+		return ctxerr
 	}
 
 	// start esbuild server
@@ -59,8 +58,7 @@ func watch() int {
 	})
 
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		return 1
+		return err
 	}
 
 	// sync values used by esbuild to real used ones
@@ -76,8 +74,7 @@ func watch() int {
 	// start file watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		return 1
+		return err
 	}
 
 	// schedule watcher cleanup
@@ -85,39 +82,36 @@ func watch() int {
 		_ = watcher.Close()
 	}(watcher)
 
-	fmt.Println(INFO, "watching:", sourceDir)
+	lib.PrintInfo("watching:", sourceDir)
 	// TODO: add back tsconfig package after there is full reload as just reloading esbuild does not reload these!!
 	//	tspath := filepath.Join(baseDir, tsConfigPath)
 	//	if lib.FileExists(tspath) {
 	//		if err := watcher.Add(tspath); err != nil {
-	//			_, _ = fmt.Fprintln(os.Stderr, err)
-	//			return 1
+	//			return err
 	//		}
-	//		fmt.Println(INFO, "watching:", tsConfigPath)
+	//		lib.PrintInfo("watching:", tsConfigPath)
 	//	}
 	//	pckpath := filepath.Join(baseDir, "package.json")
 	//	if lib.FileExists(pckpath) {
 	//		if err := watcher.Add(pckpath); err != nil {
-	//			_, _ = fmt.Fprintln(os.Stderr, err)
-	//			return 1
+	//			return err
 	//		}
-	//		fmt.Println(INFO, "watching:", "package.json")
+	//		lib.PrintInfo("watching:", "package.json")
 	//	}
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		return 1
+		return err
 	}
 
-	done := make(chan bool)
+	done := make(chan error)
 	go func() {
 		timer := time.NewTimer(time.Millisecond)
 		<-timer.C
 
-		// send done to main
+		// send done to main on goroutine end
 		defer func() {
-			done <- true
+			done <- nil
 		}()
 
 		for {
@@ -134,7 +128,7 @@ func watch() int {
 				//lastEvent = event
 				// event has write operation
 				if event.Has(fsnotify.Write) {
-					fmt.Printf(DASH+" Change in %s/%s\n", sourceDir, strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/"))
+					lib.PrintItemf("Change in %s/%s\n", sourceDir, strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/"))
 				}
 				timer.Reset(time.Millisecond * 100)
 
@@ -144,7 +138,7 @@ func watch() int {
 					if err == nil && stat.IsDir() {
 						err = filepath.WalkDir(event.Name, watchDir(watcher))
 						if err != nil {
-							_, _ = fmt.Fprintln(os.Stderr, err)
+							lib.PrintError(err)
 						}
 					}
 				}
@@ -154,7 +148,7 @@ func watch() int {
 				//					if err == nil && stat.IsDir() {
 				//						err = filepath.WalkDir(event.Name, unwatchDir(watcher))
 				//						if err != nil {
-				//							_, _ = fmt.Fprintln(os.Stderr, err)
+				//							lib.PrintError(err)
 				//						}
 				//					}
 				//				}
@@ -163,9 +157,9 @@ func watch() int {
 				if !ok {
 					return
 				}
-				_, _ = fmt.Fprintln(os.Stderr, err)
+				lib.PrintError(err)
 			case <-timer.C:
-				fmt.Printf(RELOAD + " Change detected, reloading...\n")
+				lib.PrintReload("Change detected, reloading...")
 				broker.Notifier <- []byte("update")
 			}
 		}
@@ -178,6 +172,7 @@ func watch() int {
 			protocol = "http://"
 		}
 
+		//TODO: gzip response
 		broker = lib.NewStreamServer()
 		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
@@ -186,6 +181,7 @@ func watch() int {
 					pipeRequestToEsbuild(writer, request)
 					return
 				}
+
 				next(writer, request)
 			}
 		})
@@ -195,23 +191,14 @@ func watch() int {
 
 		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
 		if err != nil {
-			if lib.IsErrorAddressAlreadyInUse(err) {
-				socket, err = net.Listen("tcp", fmt.Sprintf("%s:%d", host, 0))
-				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					done <- false
-					return
-				}
-				_, _ = fmt.Fprintln(os.Stderr, ERR, "port", port, "is in use")
-				port = socket.Addr().(*net.TCPAddr).Port
-			} else {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				done <- false
-				return
-			}
+			done <- err
+			return
 		}
 
-		fmt.Printf(INFO+" Listening on: %s%s:%d\n", protocol, host, port)
+		// get real port in case user uses 0 for random port
+		port = socket.Addr().(*net.TCPAddr).Port
+
+		lib.PrintInfof("Listening on: %s%s:%d\n", protocol, host, port)
 
 		if isSecured {
 			err = http.ServeTLS(socket, nil, certFile, keyFile)
@@ -220,18 +207,13 @@ func watch() int {
 		}
 
 		if !errors.Is(err, http.ErrServerClosed) {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			done <- false
+			done <- err
 			return
 		}
 	}()
 
 	// wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
-	ret := <-done
-	if !ret {
-		return 1
-	}
-	return 0
+	return <-done
 }
 
 // watchDir gets run as a walk func, searching for directories to add watchers to
@@ -280,7 +262,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	// get the file from esbuild
 	resp, err := http.Get(fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri))
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
+		lib.PrintError(err)
 		if !errors.Is(err, syscall.EPIPE) {
 			error404(w, true)
 		}
@@ -288,7 +270,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != 200 && resp.StatusCode != 204 && resp.StatusCode != 206 {
 		// esbuild errors
 		if isIndex && resp.StatusCode == http.StatusServiceUnavailable && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -310,12 +292,17 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", resp.Header.Get("Access-Control-Allow-Origin"))
 	w.Header().Set("Date", resp.Header.Get("Date"))
 
+	hasRange := resp.Header.Get("Content-Range")
+	if hasRange != "" {
+		w.Header().Set("Content-Range", hasRange)
+	}
+
 	// replace custom vars in index.html nad inject js/css scripts from esbuild
 	if isIndex {
 		// read esbuild response
 		readBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			lib.PrintError(err)
 			if !errors.Is(err, syscall.EPIPE) {
 				error404(w, false)
 			}
@@ -324,13 +311,15 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 
 		index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
+		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(index)
 	} else {
 		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
+		w.WriteHeader(resp.StatusCode)
 		// copy esbuild response
 		_, err = io.Copy(w, resp.Body)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			lib.PrintError(err)
 			if !errors.Is(err, syscall.EPIPE) {
 				error404(w, false)
 			}

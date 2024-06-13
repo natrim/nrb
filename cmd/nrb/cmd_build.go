@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,33 +15,31 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
-func build() int {
+func build(config *Config) error {
 	start := time.Now()
 
 	// remove output directory
 	err := os.RemoveAll(outputDir)
 	if err != nil {
-		fmt.Println(ERR, "Failed to clean build directory:", err)
-		return 1
+		return errors.Join(errors.New("failed to clean build directory"), err)
 	}
 	// dont remake as we make copy of static dir:
 	// os.MkdirAll(outputDir, 0755)
 
-	fmt.Println(OK, "Cleaned output dir")
-	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	lib.PrintOk("Cleaned output dir")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// copy static directory to build directory
 	err = lib.CopyDir(outputDir, staticDir)
 	if err != nil {
-		fmt.Println(ERR, "Failed to copy static directory:", err)
-		return 1
+		return errors.Join(errors.New("failed to copy static directory"), err)
 	}
 
-	fmt.Println(OK, "Copied static files to output dir")
-	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	lib.PrintOk("Copied static files to output dir")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println(ITEM, "Building..")
-	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	lib.PrintItem("Building..")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// use metafile
 	buildOptions.Metafile = true
@@ -52,64 +51,68 @@ func build() int {
 	result := api.Build(buildOptions)
 
 	if len(result.Errors) > 0 {
-		fmt.Println(ERR, "Failed to build")
-		fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+		lib.PrintError("failed to build")
+		lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
+
+		errs := make([]error, len(result.Errors))
 		for _, err := range result.Errors {
-			fmt.Println("-*-", err.Text)
+			errs = append(errs, errors.New("-*- "+err.Text))
 		}
-		return 1
+		return errors.Join(errs...)
 	}
 
-	fmt.Println(OK, "Esbuild done")
-	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	lib.PrintOk("Esbuild done")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	if generateMetafile {
 		if err = os.WriteFile(filepath.Join(outputDir, "build-meta.json"), []byte(result.Metafile), 0644); err != nil {
-			fmt.Println(ERR, "Failed to save metafile:", err)
+			lib.PrintError("failed to save metafile", err)
+		} else {
+			lib.PrintOk("Metafile saved to 'build-meta.json'")
+			lib.PrintInfof("use e.g. https://esbuild.github.io/analyze/ to analyze the bundle\n")
+			lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 		}
-		fmt.Println(OK, "Metafile saved to 'build-meta.json'")
-		fmt.Printf(INFO + " use e.g. https://esbuild.github.io/analyze/ to analyze the bundle\n")
-		fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
 	}
 
-	fmt.Println(ITEM, "Building index.html file...")
-	ret := makeIndex(&result)
-	if ret != 0 {
-		return ret
+	lib.PrintItem("Building index.html file...")
+	err = makeIndex(config, &result)
+	if err != nil {
+		return err
 	}
-	fmt.Println(OK, "Build done")
-	fmt.Printf(INFO+" Time: %dms\n", time.Since(start).Milliseconds())
+	lib.PrintOk("Build done")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
-	fmt.Println(OK, " All work done 🎂")
+	lib.PrintOk("All work done 🎂")
 
-	return 0
+	return nil
 }
 
-func makeIndex(result *api.BuildResult) int {
+func makeIndex(config *Config, result *api.BuildResult) error {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {
-		fmt.Println(ERR, "Failed to parse build metadata:", err)
-		return 1
+		return errors.Join(errors.New("failed to parse build metadata"), err)
 	}
 
 	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
 	if err != nil {
-		fmt.Println(ERR, "Failed to read build index.html:", err)
-		return 1
+		return errors.Join(errors.New("failed to read build index.html"), err)
 	}
 
 	//inject main js/css if not already in index.html
 	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, entryFileName, assetsDir, publicUrl)
 
 	// find chunks to preload
-	if len(preloadPathsStartingWith) > 0 {
-		var chunksToPreload []string
+	if len(config.PreloadPathsStartingWith) > 0 {
+		var chunksToPreload = make(map[string]bool)
 		for chunk, m := range metafile.Outputs {
 			for i := range m.Inputs {
-				for _, p := range preloadPathsStartingWith {
+				if _, exists := chunksToPreload[chunk]; exists {
+					continue
+				}
+				for _, p := range config.PreloadPathsStartingWith {
 					if p != "" && strings.HasPrefix(i, p) {
-						chunksToPreload = append(chunksToPreload, chunk)
+						chunksToPreload[chunk] = true
 					}
 				}
 			}
@@ -121,7 +124,7 @@ func makeIndex(result *api.BuildResult) int {
 			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
 			var replace [][]byte
-			for _, chunk := range chunksToPreload {
+			for chunk := range chunksToPreload {
 				replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>`, publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
 			}
 			indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
@@ -131,14 +134,13 @@ func makeIndex(result *api.BuildResult) int {
 	if saveIndexFile {
 		err = os.WriteFile(filepath.Join(outputDir, "index.html"), indexFile, 0644)
 		if err != nil {
-			fmt.Println(ERR, "Failed to write build index.html:", err)
-			return 1
+			return errors.Join(errors.New("failed to write built index.html"), err)
 		}
 	} else {
-		fmt.Println(ITEM, "No changes to index.html")
+		lib.PrintItem("No changes to index.html")
 	}
 
-	return 0
+	return nil
 }
 
 // Metadata is json equivalent of this esbuild metadata interface

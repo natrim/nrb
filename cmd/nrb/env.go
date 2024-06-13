@@ -1,15 +1,17 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"github.com/joho/godotenv"
-	"github.com/natrim/nrb/lib"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/joho/godotenv"
+	"github.com/natrim/nrb/lib"
 )
 
-func makeEnv() map[string]string {
+func makeEnv(versionData VersionData) (map[string]string, error) {
 	envFiles = strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
 	if lib.FileExists(filepath.Join(baseDir, ".env")) {
 		if envFiles != "" {
@@ -19,11 +21,10 @@ func makeEnv() map[string]string {
 		}
 	}
 	if envFiles != "" {
-		fmt.Printf(INFO+" loading .env file/s: %s\n", envFiles)
+		lib.PrintInfof("loading .env file/s: %s\n", envFiles)
 		err := godotenv.Overload(strings.Split(envFiles, ",")...)
 		if err != nil {
-			fmt.Println(ERR, "Error loading .env file/s:", err)
-			os.Exit(1)
+			return nil, errors.Join(errors.New("cannot load .env file/s"), err)
 		}
 	}
 
@@ -34,7 +35,7 @@ func makeEnv() map[string]string {
 		MODE = "production"
 	}
 
-	fmt.Printf(INFO+" mode: \"%s\"\n", MODE)
+	lib.PrintInfof("mode: \"%s\"\n", MODE)
 
 	isDevelopment := "false"
 	isProduction := "false"
@@ -61,8 +62,13 @@ func makeEnv() map[string]string {
 		"import.meta.env.DEV":      isDevelopment,
 
 		// metaData version
-		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
-		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", metaData["version"]),
+		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"0\""),
+		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"0\""),
+	}
+
+	if versionData != nil {
+		define["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
+		define["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
 	}
 
 	envAll := os.Environ()
@@ -78,5 +84,5 @@ func makeEnv() map[string]string {
 	define["process.env"] = "{}"
 	define["import.meta"] = "{}"
 
-	return define
+	return define, nil
 }

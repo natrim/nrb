@@ -1,14 +1,14 @@
 package main
 
 import (
-	"fmt"
+	"errors"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
 )
 
-func run(packageJson map[string]any, args []string) int {
+func runNpmScript(packageJson PackageJson, args []string) error {
 	if scripts, ok := packageJson["scripts"]; ok {
 		if script, ok := scripts.(map[string]any)[npmRun]; ok {
 			args = append([]string{"-c"}, strings.Join(append([]string{script.(string)}, args...), " "))
@@ -20,18 +20,14 @@ func run(packageJson map[string]any, args []string) int {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				_, _ = fmt.Fprintln(os.Stderr, err)
-				return 1
+				return err
 			} else {
-				fmt.Printf(OK+" Run \"%s\" done.\n", npmRun)
-				return 0
+				return nil
 			}
 		} else {
-			fmt.Println(ERR, "No script found in package.json")
-			return 1
+			return errors.New("no script found in package.json")
 		}
 	} else {
-		fmt.Println(ERR, "No scripts found in package.json")
-		return 1
+		return errors.New("no scripts found in package.json")
 	}
 }
