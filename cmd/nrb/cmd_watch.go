@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -260,7 +261,13 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	uri = strings.TrimPrefix(uri, "/")
 
 	// get the file from esbuild
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri))
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // cancel after minute
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri), nil)
+	req.Header.Set("Host", r.Header.Get("Host"))
+	setXForwardedFrom(req, r)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		lib.PrintError(err)
 		if !errors.Is(err, syscall.EPIPE) {
@@ -287,15 +294,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// copy esbuild headers
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
-	//	content-length needs to be potentionaly customized
-	w.Header().Set("Access-Control-Allow-Origin", resp.Header.Get("Access-Control-Allow-Origin"))
-	w.Header().Set("Date", resp.Header.Get("Date"))
-
-	hasRange := resp.Header.Get("Content-Range")
-	if hasRange != "" {
-		w.Header().Set("Content-Range", hasRange)
-	}
+	copyHeaders(w.Header(), resp.Header)
 
 	// replace custom vars in index.html nad inject js/css scripts from esbuild
 	if isIndex {
@@ -314,7 +313,6 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(index)
 	} else {
-		w.Header().Set("Content-Length", resp.Header.Get("Content-Length"))
 		w.WriteHeader(resp.StatusCode)
 		// copy esbuild response
 		_, err = io.Copy(w, resp.Body)
@@ -328,8 +326,37 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func setXForwardedFrom(req *http.Request, src *http.Request) {
+	clientIP, _, err := net.SplitHostPort(src.RemoteAddr)
+	if err == nil {
+		prior := req.Header["X-Forwarded-For"]
+		if len(prior) > 0 {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		req.Header.Set("X-Forwarded-For", clientIP)
+	} else {
+		req.Header.Del("X-Forwarded-For")
+	}
+	req.Header.Set("X-Forwarded-Host", src.Host)
+	if src.TLS == nil {
+		req.Header.Set("X-Forwarded-Proto", "http")
+	} else {
+		req.Header.Set("X-Forwarded-Proto", "https")
+	}
+}
+
+func copyHeaders(dst, src http.Header) {
+	for k, vv := range src {
+		for _, v := range vv {
+			dst.Set(k, v)
+		}
+	}
+}
+
 func error404(res http.ResponseWriter, writeHeader bool) {
 	res.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	res.Header().Del("Content-Length")
+	res.Header().Del("Content-Range")
 	if writeHeader {
 		res.WriteHeader(http.StatusNotFound)
 	}
