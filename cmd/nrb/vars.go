@@ -50,7 +50,12 @@ var tsConfigPath = "tsconfig.json"
 var versionPath = "public/version.json"
 var npmRun = ""
 
-func SetupFlags() {
+var cliPreloadPathsStartingWith arrayFlags
+var cliInjects arrayFlags
+var cliResolveModules mapFlags
+var cliAliasPackages mapFlags
+
+func SetupFlags(config *Config) {
 	// now start settings flags
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flag.CommandLine.Usage = func() {
@@ -89,11 +94,10 @@ func SetupFlags() {
 	flag.BoolVar(&splitting, "splitting", splitting, "enable code splitting")
 	flag.BoolVar(&splitting, "split", splitting, "alias of -splitting")
 
-	//FIXME: redo after global config stuff is done
-	//	flag.Var(&config.PreloadPathsStartingWith, "preload", "paths to module=preload on build, can have multiple flags, ie. --preload=src/index,node_modules/react")
-	//	flag.Var(&config.ResolveModules, "resolve", "resolve package import with 'package:path', can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
-	//	flag.Var(&config.AliasPackages, "alias", "alias package with another 'package:aliasedpackage', can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
-	//	flag.Var(&config.Injects, "inject", "allows you to automatically replace a global variable with an import from another file, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
+	flag.Var(&cliPreloadPathsStartingWith, "preload", "paths to module=preload on build, overrides values from package.json, can have multiple flags, ie. --preload=src/index,node_modules/react")
+	flag.Var(&cliResolveModules, "resolve", "resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
+	flag.Var(&cliAliasPackages, "alias", "alias package with another 'package:aliasedpackage', overrides values from package.json, can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
+	flag.Var(&cliInjects, "inject", "allows you to automatically replace a global variable with an import from another file, overrides values from package.json, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
 
 	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")

@@ -54,7 +54,7 @@ func parseVersionData() (VersionData, error) {
 	return data, nil
 }
 
-func parseJsonConfig(packageJson PackageJson) (Config, error) {
+func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 	config := Config{}
 
 	// check for alias/resolve/preload/inject options from package.json
@@ -68,7 +68,7 @@ func parseJsonConfig(packageJson PackageJson) (Config, error) {
 					config.AliasPackages[name] = fmt.Sprintf("%v", aliasPath)
 				}
 			} else {
-				return config, errors.New("wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
+				return &config, errors.New("wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
 			}
 		}
 		if resolve, ok := options["resolve"]; ok {
@@ -78,7 +78,7 @@ func parseJsonConfig(packageJson PackageJson) (Config, error) {
 					config.ResolveModules[name] = fmt.Sprintf("%v", resolvePath)
 				}
 			} else {
-				return config, errors.New("wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
+				return &config, errors.New("wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
 			}
 		}
 		if preload, ok := options["preload"]; ok {
@@ -88,7 +88,7 @@ func parseJsonConfig(packageJson PackageJson) (Config, error) {
 					config.PreloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
 				}
 			} else {
-				return config, errors.New("wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
+				return &config, errors.New("wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
 			}
 		}
 		if inject, ok := options["inject"]; ok {
@@ -98,7 +98,7 @@ func parseJsonConfig(packageJson PackageJson) (Config, error) {
 					config.Injects[i] = fmt.Sprintf("%v", p)
 				}
 			} else {
-				return config, errors.New("wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
+				return &config, errors.New("wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
 			}
 		}
 		if inline, ok := options["inline"]; ok {
@@ -113,11 +113,11 @@ func parseJsonConfig(packageJson PackageJson) (Config, error) {
 						config.InlineExtensions[i] = fmt.Sprintf("%v", pr)
 					}
 				} else {
-					return config, errors.New("wrong 'inline.extensions' key in 'package.json', use array: [jpg,png,other_extension]")
+					return &config, errors.New("wrong 'inline.extensions' key in 'package.json', use array: [jpg,png,other_extension]")
 				}
 			}
 		}
 	}
 
-	return config, nil
+	return &config, nil
 }

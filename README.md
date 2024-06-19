@@ -57,6 +57,8 @@ go install github.com/natrim/nrb/cmd/nrb@latest
 > Usage: nrb [flags] command
 > use command with 'build' to build the app, 'watch' for watch mode, 'serve' to serve build folder, 'version-update' to update build number, 'version' for current build version, 'cert' to make https certificate for watch/serve, 'run' to run npm scripts and 'help' to show this help
 Flags:
+  -alias value
+    	alias package with another 'package:aliasedpackage', overrides values from package.json, can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat
   -assetNames string
     	asset names schema for esbuild (default "media/[name]-[hash]")
   -assetsDir string
@@ -73,13 +75,13 @@ Flags:
     	env files to load from (always loads .env first)
   -envPrefix string
     	env variables prefix (default "REACT_APP_")
-  -gzip
-    	gzip responses (default true)
   -h	alias of -help
   -help
     	this help
   -host string
     	host (default "localhost")
+  -inject value
+    	allows you to automatically replace a global variable with an import from another file, overrides values from package.json, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js
   -jsx string
     	tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve (default "automatic")
   -jsxFactory string
@@ -98,8 +100,12 @@ Flags:
     	output dir name (default "build")
   -port int
     	port (default 3000)
+  -preload value
+    	paths to module=preload on build, overrides values from package.json, can have multiple flags, ie. --preload=src/index,node_modules/react
   -publicUrl string
     	public url (default "/")
+  -resolve value
+    	resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js
   -sourceDir string
     	source directory name (default "src")
   -split

@@ -14,8 +14,10 @@ import (
 
 // init in vars.go (flag parsing)
 
+var config = &Config{}
+
 func init() {
-	SetupFlags()
+	SetupFlags(config)
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
 		if filepath.Base(path) == "scripts" {
@@ -153,7 +155,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	config := buildEsbuildConfig()
+	buildEsbuildConfig()
 
 	if isWatch {
 		if err := watch(); err != nil {
@@ -174,17 +176,23 @@ func main() {
 	}
 }
 
-func buildEsbuildConfig() *Config {
+func buildEsbuildConfig() {
 	packageJson, err := parsePackageJson()
 	if err != nil {
 		lib.PrintError(err)
 		os.Exit(1)
 	}
-	config, err := parseJsonConfig(packageJson)
+	config, err = parseJsonConfig(packageJson)
 	if err != nil {
 		lib.PrintError(err)
 		os.Exit(1)
 	}
+
+	// override by values from cli
+	config.PreloadPathsStartingWith = cliPreloadPathsStartingWith
+	config.ResolveModules = cliResolveModules
+	config.AliasPackages = cliAliasPackages
+	config.Injects = cliInjects
 
 	browserTarget := api.DefaultTarget
 
@@ -327,6 +335,4 @@ func buildEsbuildConfig() *Config {
 	} else {
 		buildOptions.Color = api.ColorNever
 	}
-
-	return &config
 }
