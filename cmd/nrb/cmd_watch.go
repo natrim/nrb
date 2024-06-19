@@ -56,7 +56,7 @@ func watch() error {
 
 	lib.PrintInfo("watching:", sourceDir)
 
-	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath), filepath.Join(staticDir, versionPath)}
+	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath), filepath.Join(baseDir, versionPath)}
 	for _, vpath := range extraWatch {
 		if lib.FileExists(vpath) {
 			if err := watcher.Add(vpath); err != nil {

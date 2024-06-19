@@ -12,7 +12,7 @@ import (
 )
 
 func version(versionData VersionData, update bool) error {
-	versionFilePath := filepath.Join(staticDir, versionPath)
+	versionFilePath := filepath.Join(baseDir, versionPath)
 	if versionData == nil {
 		var err error
 		if versionData, err = parseVersionData(); versionData == nil {

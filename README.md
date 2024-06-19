@@ -116,7 +116,7 @@ Flags:
   -version
     	nrb version number
   -versionfile string
-    	path to version.json, relative to current work directory (default "version.json")
+    	path to version.json, relative to current work directory (default "public/version.json")
 ```
 
 ### TODO
