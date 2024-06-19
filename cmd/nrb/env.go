@@ -11,7 +11,9 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
-func makeEnv(versionData VersionData) (map[string]string, error) {
+var definedReplacements mapFlags
+
+func makeEnv() error {
 	envFiles = strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
 	if lib.FileExists(filepath.Join(baseDir, ".env")) {
 		if envFiles != "" {
@@ -24,7 +26,7 @@ func makeEnv(versionData VersionData) (map[string]string, error) {
 		lib.PrintInfof("loading .env file/s: %s\n", envFiles)
 		err := godotenv.Overload(strings.Split(envFiles, ",")...)
 		if err != nil {
-			return nil, errors.Join(errors.New("cannot load .env file/s"), err)
+			return errors.Join(errors.New("cannot load .env file/s"), err)
 		}
 	}
 
@@ -66,11 +68,6 @@ func makeEnv(versionData VersionData) (map[string]string, error) {
 		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"0\""),
 	}
 
-	if versionData != nil {
-		define["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
-		define["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
-	}
-
 	envAll := os.Environ()
 	for _, v := range envAll {
 		env := strings.SplitN(v, "=", 2)
@@ -84,5 +81,7 @@ func makeEnv(versionData VersionData) (map[string]string, error) {
 	define["process.env"] = "{}"
 	define["import.meta"] = "{}"
 
-	return define, nil
+	definedReplacements = define
+
+	return nil
 }

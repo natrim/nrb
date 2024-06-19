@@ -15,7 +15,7 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
-func build(config *Config) error {
+func build(preloadPathsStartingWith arrayFlags) error {
 	start := time.Now()
 
 	// remove output directory
@@ -75,7 +75,7 @@ func build(config *Config) error {
 	}
 
 	lib.PrintItem("Building index.html file...")
-	err = makeIndex(config, &result)
+	err = makeIndex(preloadPathsStartingWith, &result)
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func build(config *Config) error {
 	return nil
 }
 
-func makeIndex(config *Config, result *api.BuildResult) error {
+func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) error {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {
@@ -103,14 +103,14 @@ func makeIndex(config *Config, result *api.BuildResult) error {
 	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, entryFileName, assetsDir, publicUrl)
 
 	// find chunks to preload
-	if len(config.PreloadPathsStartingWith) > 0 {
+	if len(preloadPathsStartingWith) > 0 {
 		var chunksToPreload = make(map[string]bool)
 		for chunk, m := range metafile.Outputs {
 			for i := range m.Inputs {
 				if _, exists := chunksToPreload[chunk]; exists {
 					continue
 				}
-				for _, p := range config.PreloadPathsStartingWith {
+				for _, p := range preloadPathsStartingWith {
 					if p != "" && strings.HasPrefix(i, p) {
 						chunksToPreload[chunk] = true
 					}

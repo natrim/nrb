@@ -90,13 +90,12 @@ func main() {
 		os.Exit(0)
 	}
 
-	packageJson, err := parsePackageJson()
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
-	}
-
 	if npmRun != "" {
+		packageJson, err := parsePackageJson()
+		if err != nil {
+			lib.PrintError(err)
+			os.Exit(1)
+		}
 		if err := runNpmScript(packageJson, os.Args[3:]); err != nil {
 			lib.PrintError(err)
 			os.Exit(1)
@@ -106,14 +105,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	versionData, err := parseVersionData()
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
-	}
-
 	if isVersionGet {
-		if err := version(versionData, false); err != nil {
+		if err := version(nil, false); err != nil {
 			lib.PrintError(err)
 			os.Exit(1)
 		}
@@ -122,18 +115,12 @@ func main() {
 	}
 
 	if isVersionUpdate {
-		if err := version(versionData, true); err != nil {
+		if err := version(nil, true); err != nil {
 			lib.PrintError(err)
 			os.Exit(1)
 		}
 
 		os.Exit(0)
-	}
-
-	config, err := parseJsonConfig(packageJson)
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
 	}
 
 	if !isSecured && os.Getenv("DEV_SERVER_CERT") != "" {
@@ -161,22 +148,63 @@ func main() {
 		os.Exit(0)
 	}
 
+	if err := makeEnv(); err != nil {
+		lib.PrintError(err)
+		os.Exit(1)
+	}
+
+	config := buildEsbuildConfig()
+
+	if isWatch {
+		if err := watch(); err != nil {
+			lib.PrintError(err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+
+	if isBuild {
+		if err := build(config.PreloadPathsStartingWith); err != nil {
+			lib.PrintError(err)
+			os.Exit(1)
+		}
+
+		os.Exit(0)
+	}
+}
+
+func buildEsbuildConfig() *Config {
+	packageJson, err := parsePackageJson()
+	if err != nil {
+		lib.PrintError(err)
+		os.Exit(1)
+	}
+	config, err := parseJsonConfig(packageJson)
+	if err != nil {
+		lib.PrintError(err)
+		os.Exit(1)
+	}
+
 	browserTarget := api.DefaultTarget
 
 	if customBrowserTarget != "" {
-		jsonFile, err := os.ReadFile(filepath.Join(baseDir, tsConfigPath))
-		if err != nil {
-			lib.PrintError(err)
-		} else {
-			var tsconfigJson map[string]any
-			err = json.Unmarshal(jsonFile, &tsconfigJson)
+		tspath := filepath.Join(baseDir, tsConfigPath)
+		if lib.FileExists(tspath) {
+			jsonFile, err := os.ReadFile(tspath)
 			if err != nil {
 				lib.PrintError(err)
-				os.Exit(1)
-			}
-			jsonFile = nil
+			} else {
+				var tsconfigJson map[string]any
+				err = json.Unmarshal(jsonFile, &tsconfigJson)
+				if err != nil {
+					lib.PrintError(err)
+					os.Exit(1)
+				}
+				jsonFile = nil
 
-			customBrowserTarget = tsconfigJson["compilerOptions"].(map[string]any)["target"].(string)
+				customBrowserTarget = tsconfigJson["compilerOptions"].(map[string]any)["target"].(string)
+			}
 		}
 	}
 
@@ -212,10 +240,17 @@ func main() {
 		}
 	}
 
-	definedReplacements, err := makeEnv(versionData)
+	versionData, err := parseVersionData()
 	if err != nil {
 		lib.PrintError(err)
 		os.Exit(1)
+	}
+
+	if versionData == nil {
+		lib.PrintItem("No versionData available")
+	} else {
+		definedReplacements["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
+		definedReplacements["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
 	}
 
 	buildOptions = api.BuildOptions{
@@ -293,21 +328,5 @@ func main() {
 		buildOptions.Color = api.ColorNever
 	}
 
-	if isWatch {
-		if err := watch(); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
-	}
-
-	if isBuild {
-		if err := build(&config); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
-	}
+	return &config
 }

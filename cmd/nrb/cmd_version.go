@@ -14,9 +14,14 @@ import (
 func version(versionData VersionData, update bool) error {
 	versionFilePath := filepath.Join(staticDir, versionPath)
 	if versionData == nil {
-		//if versionData, _ = parseVersionData(); versionData == nil {
-		return errors.New("you need to have " + versionFilePath)
-		//}
+		var err error
+		if versionData, err = parseVersionData(); versionData == nil {
+			errr := errors.New("you need to have " + versionFilePath)
+			if err != nil {
+				return errors.Join(errr, err)
+			}
+			return errr
+		}
 	}
 
 	if update {

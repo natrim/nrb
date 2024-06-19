@@ -12,11 +12,11 @@ import (
 )
 
 func parsePackageJson() (PackageJson, error) {
-	if !lib.FileExists(filepath.Join(baseDir, "package.json")) {
-		return nil, errors.New("no " + filepath.Join(baseDir, "package.json") + " found")
+	if !lib.FileExists(filepath.Join(baseDir, packagePath)) {
+		return nil, errors.New("no " + filepath.Join(baseDir, packagePath) + " found")
 	}
 
-	jsonFile, err := os.ReadFile(filepath.Join(baseDir, "package.json"))
+	jsonFile, err := os.ReadFile(filepath.Join(baseDir, packagePath))
 	if err != nil {
 		return nil, err
 	}

@@ -45,6 +45,7 @@ var isHelp = false
 var isVersion = false
 var useColor = true
 var generateMetafile = false
+var packagePath = "package.json"
 var tsConfigPath = "tsconfig.json"
 var versionPath = "version.json"
 var npmRun = ""

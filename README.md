@@ -121,7 +121,6 @@ Flags:
 
 ### TODO
 
-- fix reloading on tsconfig change
 - better config
 - documentation
 - more thing to read from config (custom config file instead of just reading package.json?)

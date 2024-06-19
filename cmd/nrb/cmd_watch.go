@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -26,57 +27,27 @@ var broker *lib.Broker
 var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
 
 func watch() error {
-	var err error
-
-	// inject hot reload watcher to js
-	if buildOptions.Banner == nil {
-		buildOptions.Banner = map[string]string{"js": reloadJS}
-	} else {
-		if _, ok := buildOptions.Banner["js"]; !ok {
-			buildOptions.Banner["js"] = reloadJS
-		} else {
-			buildOptions.Banner["js"] = reloadJS + buildOptions.Banner["js"]
-		}
-	}
-
-	// set outdir
-	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
-
-	// dont write files on watch
-	buildOptions.Write = false
-
-	// get esbuild context
-	ctx, ctxerr := api.Context(buildOptions)
-	if ctxerr != nil {
-		return ctxerr
-	}
-
-	// start esbuild server
-	server, err := ctx.Serve(api.ServeOptions{
-		Servedir: staticDir,
-		Port:     proxyPort,
-		Host:     host,
-	})
-
+	esbuildContext, err := startEsbuildServe()
 	if err != nil {
 		return err
 	}
-
-	// sync values used by esbuild to real used ones
-	proxyPort = server.Port
-	// nope- host = server.Host
 
 	// wait a bit cause stuff
 	time.Sleep(250 * time.Millisecond)
 
 	// schedule esbuild context cleanup
-	defer ctx.Dispose()
+	defer func() {
+		if esbuildContext != nil {
+			esbuildContext.Dispose()
+		}
+	}()
 
 	// start file watcher
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
+	//lib.PrintOk("Watcher start done")
 
 	// schedule watcher cleanup
 	defer func(watcher *fsnotify.Watcher) {
@@ -84,21 +55,16 @@ func watch() error {
 	}(watcher)
 
 	lib.PrintInfo("watching:", sourceDir)
-	// TODO: add back tsconfig package after there is full reload as just reloading esbuild does not reload these!!
-	//	tspath := filepath.Join(baseDir, tsConfigPath)
-	//	if lib.FileExists(tspath) {
-	//		if err := watcher.Add(tspath); err != nil {
-	//			return err
-	//		}
-	//		lib.PrintInfo("watching:", tsConfigPath)
-	//	}
-	//	pckpath := filepath.Join(baseDir, "package.json")
-	//	if lib.FileExists(pckpath) {
-	//		if err := watcher.Add(pckpath); err != nil {
-	//			return err
-	//		}
-	//		lib.PrintInfo("watching:", "package.json")
-	//	}
+
+	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath), filepath.Join(staticDir, versionPath)}
+	for _, vpath := range extraWatch {
+		if lib.FileExists(vpath) {
+			if err := watcher.Add(vpath); err != nil {
+				return err
+			}
+			lib.PrintInfo("watching:", vpath)
+		}
+	}
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
@@ -126,6 +92,26 @@ func watch() error {
 				if event.Op == fsnotify.Chmod {
 					continue
 				}
+
+				if slices.Contains(extraWatch, event.Name) {
+					if event.Has(fsnotify.Create | fsnotify.Write) {
+						if esbuildContext != nil {
+							esbuildContext.Dispose()
+							esbuildContext = nil
+						}
+						buildEsbuildConfig()
+						esbuildContext, err = startEsbuildServe()
+						if err != nil {
+							lib.PrintError(err)
+							os.Exit(1)
+						}
+						lib.PrintReload("Config change detected, reloading esbuild...")
+						time.Sleep(250 * time.Millisecond)
+						broker.Notifier <- []byte("update")
+					}
+					continue
+				}
+
 				//lastEvent = event
 				// event has write operation
 				if event.Has(fsnotify.Write) {
@@ -213,7 +199,6 @@ func watch() error {
 		}
 	}()
 
-	// wait for watcher end (esbuild and http server will just log errors and will be killed with main process)
 	return <-done
 }
 
@@ -361,4 +346,48 @@ func error404(res http.ResponseWriter, writeHeader bool) {
 		res.WriteHeader(http.StatusNotFound)
 	}
 	_, _ = res.Write([]byte("404 - Not Found"))
+}
+
+func startEsbuildServe() (api.BuildContext, error) {
+	// inject hot reload watcher to js
+	if buildOptions.Banner == nil {
+		buildOptions.Banner = map[string]string{"js": reloadJS}
+	} else {
+		if _, ok := buildOptions.Banner["js"]; !ok {
+			buildOptions.Banner["js"] = reloadJS
+		} else {
+			buildOptions.Banner["js"] = reloadJS + buildOptions.Banner["js"]
+		}
+	}
+
+	// set outdir
+	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
+
+	// dont write files on watch
+	buildOptions.Write = false
+
+	// get esbuild context
+	ctx, ctxerr := api.Context(buildOptions)
+	if ctxerr != nil {
+		return nil, ctxerr
+	}
+
+	// start esbuild server
+	server, err := ctx.Serve(api.ServeOptions{
+		Servedir: staticDir,
+		Port:     proxyPort,
+		Host:     host,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	// sync values used by esbuild to real used ones
+	proxyPort = server.Port
+	// nope- host = server.Host
+
+	//lib.PrintOk("Esbuild start done")
+
+	return ctx, nil
 }
