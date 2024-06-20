@@ -300,8 +300,10 @@ func buildEsbuildConfig() {
 		Inject: config.Injects,
 		Loader: config.Loaders,
 
-		Sourcemap: api.SourceMapLinked,
-		Tsconfig:  filepath.Join(baseDir, tsConfigPath),
+		// moved lower to flag
+		//Sourcemap: api.SourceMapLinked,
+
+		Tsconfig: filepath.Join(baseDir, tsConfigPath),
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(config.ResolveModules),
@@ -342,6 +344,21 @@ func buildEsbuildConfig() {
 		buildOptions.LegalComments = api.LegalCommentsExternal
 	} else {
 		lib.Printe("wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
+		os.Exit(1)
+	}
+
+	if sourceMap == "none" {
+		buildOptions.Sourcemap = api.SourceMapNone
+	} else if sourceMap == "inline" {
+		buildOptions.Sourcemap = api.SourceMapInline
+	} else if sourceMap == "linked" {
+		buildOptions.Sourcemap = api.SourceMapLinked
+	} else if sourceMap == "external" {
+		buildOptions.Sourcemap = api.SourceMapExternal
+	} else if sourceMap == "both" {
+		buildOptions.Sourcemap = api.SourceMapInlineAndExternal
+	} else {
+		lib.Printe("wrong \"--sourceMap\" value! (allowed: none|inline|linked|external|both)")
 		os.Exit(1)
 	}
 

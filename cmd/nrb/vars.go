@@ -29,6 +29,7 @@ var jsxImportSource = ""
 var jsxFactory = ""
 var jsxFragment = ""
 var splitting = false
+var sourceMap = "linked"
 var customBrowserTarget = ""
 
 var isSecured = false
@@ -95,6 +96,7 @@ func SetupFlags(config *Config) {
 	flag.BoolVar(&jsxSideEffects, "jsxSideEffects", jsxSideEffects, "Do not remove unused JSX expressions")
 	flag.StringVar(&jsx, "jsx", jsx, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
 	flag.StringVar(&legalComments, "legalComments", legalComments, "what to do with legal comments, available options: none|inline|eof|linked|external")
+	flag.StringVar(&sourceMap, "sourceMap", sourceMap, "what sourcemap to use, available options: none|inline|linked|external|both")
 	flag.BoolVar(&splitting, "splitting", splitting, "enable code splitting")
 	flag.BoolVar(&splitting, "split", splitting, "alias of -splitting")
 

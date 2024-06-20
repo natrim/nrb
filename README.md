@@ -78,6 +78,8 @@ Flags:
     	resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js
   -sourceDir string
     	source directory name (default "src")
+  -sourceMap string
+    	what sourcemap to use, available options: none|inline|linked|external|both (default "linked")
   -split
     	alias of -splitting
   -splitting
