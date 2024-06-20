@@ -59,17 +59,18 @@ func watch() error {
 		_ = watcher.Close()
 	}(watcher)
 
-	lib.PrintInfo("watching:", sourceDir)
-
+	watchingDirsInfo := sourceDir
 	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath), filepath.Join(baseDir, versionPath)}
 	for _, vpath := range extraWatch {
 		if lib.FileExists(vpath) {
 			if err := watcher.Add(vpath); err != nil {
 				return err
 			}
-			lib.PrintInfo("watching:", vpath)
+			watchingDirsInfo += ", " + vpath
 		}
 	}
+
+	lib.PrintInfo("watching:", watchingDirsInfo)
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {

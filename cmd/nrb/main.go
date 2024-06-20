@@ -179,7 +179,7 @@ func main() {
 	buildEsbuildConfig()
 
 	if env != "" {
-		lib.PrintInfof("loading .env file/s: %s\n", env)
+		lib.PrintInfof("env: %s\n", env)
 	}
 	if mode != "" {
 		lib.PrintInfof("mode: \"%s\"\n", mode)
