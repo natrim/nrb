@@ -30,13 +30,15 @@ func build(preloadPathsStartingWith arrayFlags) error {
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// copy static directory to build directory
-	err = lib.CopyDir(outputDir, staticDir)
-	if err != nil {
-		return errors.Join(errors.New("failed to copy static directory"), err)
-	}
+	if staticDir != "" {
+		err = lib.CopyDir(outputDir, staticDir)
+		if err != nil {
+			return errors.Join(errors.New("failed to copy static directory"), err)
+		}
 
-	lib.PrintOk("Copied static files to output dir")
-	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
+		lib.PrintOk("Copied static files to output dir")
+		lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
+	}
 
 	lib.PrintItem("Building..")
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())

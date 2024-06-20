@@ -21,9 +21,15 @@ func init() {
 	if path, err := os.Getwd(); err == nil {
 		// escape scripts dir
 		if filepath.Base(path) == "scripts" {
-			sourceDir = filepath.Join("..", sourceDir)
-			outputDir = filepath.Join("..", outputDir)
-			staticDir = filepath.Join("..", staticDir)
+			if sourceDir != "" {
+				sourceDir = filepath.Join("..", sourceDir)
+			}
+			if outputDir != "" {
+				outputDir = filepath.Join("..", outputDir)
+			}
+			if staticDir != "" {
+				staticDir = filepath.Join("..", staticDir)
+			}
 			baseDir = ".."
 		}
 	} else {
@@ -44,6 +50,15 @@ func main() {
 	if flag.NArg() > 1 {
 		lib.PrintError("use flags before", lib.Yellow("command"))
 		lib.PrintInfo("Usage:", lib.Blue(filepath.Base(os.Args[0])), "[flags]", lib.Yellow("command"))
+		os.Exit(1)
+	}
+
+	if sourceDir == "" {
+		sourceDir = "."
+	}
+
+	if outputDir == "" {
+		lib.PrintError("failed to find build directory")
 		os.Exit(1)
 	}
 
