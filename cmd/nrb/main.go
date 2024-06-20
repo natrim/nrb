@@ -201,10 +201,18 @@ func buildEsbuildConfig() {
 	}
 
 	// override by values from cli
-	config.PreloadPathsStartingWith = cliPreloadPathsStartingWith
-	config.ResolveModules = cliResolveModules
-	config.AliasPackages = cliAliasPackages
-	config.Injects = cliInjects
+	if len(cliPreloadPathsStartingWith) > 0 {
+		config.PreloadPathsStartingWith = cliPreloadPathsStartingWith
+	}
+	if len(cliResolveModules) > 0 {
+		config.ResolveModules = cliResolveModules
+	}
+	if len(cliAliasPackages) > 0 {
+		config.AliasPackages = cliAliasPackages
+	}
+	if len(cliInjects) > 0 {
+		config.Injects = cliInjects
+	}
 
 	browserTarget := api.DefaultTarget
 
