@@ -213,6 +213,9 @@ func buildEsbuildConfig() {
 	if len(cliInjects) > 0 {
 		config.Injects = cliInjects
 	}
+	if len(cliLoaders) > 0 {
+		config.Loaders = cliLoaders
+	}
 
 	browserTarget := api.DefaultTarget
 
@@ -280,7 +283,7 @@ func buildEsbuildConfig() {
 
 		Define: definedReplacements,
 		Inject: config.Injects,
-		Loader: cliLoaders,
+		Loader: config.Loaders,
 
 		Sourcemap: api.SourceMapLinked,
 		Tsconfig:  filepath.Join(baseDir, tsConfigPath),

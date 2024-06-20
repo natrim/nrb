@@ -105,6 +105,7 @@ type Config struct {
 	Injects                  arrayFlags
 	InlineSize               int64
 	InlineExtensions         []string
+	Loaders                  loaderFlags
 }
 
 type PackageJson map[string]any

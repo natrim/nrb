@@ -115,6 +115,9 @@ Flags:
         "inject": [
             "src/inject.js"
         ],
+        "loaders": {
+            ".data": "json"
+        },
         "inline": {
             "size": 10000,
             "extensions": [

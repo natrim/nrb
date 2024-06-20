@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/natrim/nrb/lib"
 )
@@ -68,7 +69,21 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 					config.AliasPackages[name] = fmt.Sprintf("%v", aliasPath)
 				}
 			} else {
-				return &config, errors.New("wrong 'alias' key in 'package.json', use object: {package:alias,another:alias}")
+				return &config, errors.New("wrong 'alias' key in 'package.json', use object: {package:alias,another:alias,...}")
+			}
+		}
+		if loader, ok := options["loaders"]; ok {
+			if _, ok = loader.(map[string]any); ok {
+				config.Loaders = make(loaderFlags)
+				for ext, loaderString := range loader.(map[string]any) {
+					l, err := lib.ParseLoader(loaderString.(string))
+					if err != nil {
+						return &config, fmt.Errorf("wrong 'loaders' value in 'package.json': %q = %q", ext, loaderString)
+					}
+					config.Loaders["."+strings.TrimPrefix(ext, ".")] = l
+				}
+			} else {
+				return &config, errors.New("wrong 'loaders' key in 'package.json', use object: {ext:loader,ext2:loadr,...}")
 			}
 		}
 		if resolve, ok := options["resolve"]; ok {
@@ -78,7 +93,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 					config.ResolveModules[name] = fmt.Sprintf("%v", resolvePath)
 				}
 			} else {
-				return &config, errors.New("wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath}")
+				return &config, errors.New("wrong 'resolve' key in 'package.json', use object: {package:path,maybenaother:morepath,...}")
 			}
 		}
 		if preload, ok := options["preload"]; ok {
@@ -88,7 +103,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 					config.PreloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
 				}
 			} else {
-				return &config, errors.New("wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath]")
+				return &config, errors.New("wrong 'preload' key in 'package.json', use array: [pathtopreload,maybeanotherpath,...]")
 			}
 		}
 		if inject, ok := options["inject"]; ok {
@@ -98,7 +113,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 					config.Injects[i] = fmt.Sprintf("%v", p)
 				}
 			} else {
-				return &config, errors.New("wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath]")
+				return &config, errors.New("wrong 'inject' key in 'package.json', use array: [pathtoinject,maybeanotherpath,...]")
 			}
 		}
 		if inline, ok := options["inline"]; ok {
@@ -113,7 +128,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 						config.InlineExtensions[i] = fmt.Sprintf("%v", pr)
 					}
 				} else {
-					return &config, errors.New("wrong 'inline.extensions' key in 'package.json', use array: [jpg,png,other_extension]")
+					return &config, errors.New("wrong 'inline.extensions' key in 'package.json', use array: [jpg,png,...]")
 				}
 			}
 		}
