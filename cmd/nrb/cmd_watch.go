@@ -23,6 +23,7 @@ import (
 var proxyPort uint16
 var protocol string
 var broker *lib.Broker
+var changedNames []string
 
 var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
 
@@ -119,7 +120,12 @@ func watch() error {
 				//lastEvent = event
 				// event has write operation
 				if event.Has(fsnotify.Write) {
-					lib.PrintItemf("Change in %s/%s\n", sourceDir, strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/"))
+					name := strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/")
+
+					if !slices.Contains(changedNames, name) {
+						lib.PrintItemf("Change in %s/%s\n", sourceDir, name)
+						changedNames = append(changedNames, name)
+					}
 				}
 				timer.Reset(time.Millisecond * 100)
 
@@ -151,6 +157,7 @@ func watch() error {
 				lib.PrintError(err)
 			case <-timer.C:
 				lib.PrintReload("Change detected, reloading...")
+				changedNames = nil
 				broker.Notifier <- []byte("update")
 			}
 		}
