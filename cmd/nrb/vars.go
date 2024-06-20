@@ -8,6 +8,7 @@ import (
 	"github.com/evanw/esbuild/pkg/api"
 )
 
+var envFiles = ""
 var envPrefix = "REACT_APP_"
 var sourceDir = "src"
 var entryFileName = "index.tsx"
@@ -29,7 +30,7 @@ var jsxFactory = ""
 var jsxFragment = ""
 var splitting = false
 var customBrowserTarget = ""
-var envFiles string
+
 var isSecured = false
 var certFile, keyFile string
 
@@ -55,12 +56,15 @@ var cliInjects arrayFlags
 var cliResolveModules mapFlags
 var cliAliasPackages mapFlags
 
+var cliLoaders loaderFlags
+
 func SetupFlags(config *Config) {
 	// now start settings flags
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flag.CommandLine.Usage = func() {
 		// nothing, app will print it's stuff
 	}
+
 	flag.BoolVar(&isVersion, "version", isVersion, "nrb version number")
 	flag.BoolVar(&isVersion, "v", isVersion, "alias of -version")
 	flag.BoolVar(&isHelp, "h", isHelp, "alias of -help")
@@ -102,11 +106,13 @@ func SetupFlags(config *Config) {
 	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
 	flag.StringVar(&versionPath, "versionfile", versionPath, "path to version.json, relative to current work directory")
+
+	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, ie. --loaders=png:dataurl,svg:text")
 }
 
 func SetupMime() {
 	// register some mime fallbacks
-	_ = mime.AddExtensionType(".webmanifest", "applicaton/json")
+	_ = mime.AddExtensionType(".webmanifest", "application/json")
 	_ = mime.AddExtensionType(".webp", "image/webp")
 	_ = mime.AddExtensionType(".md", "text/markdown")
 	_ = mime.AddExtensionType(".svg", "image/svg+xml")

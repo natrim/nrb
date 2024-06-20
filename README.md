@@ -19,38 +19,6 @@ go install github.com/natrim/nrb/cmd/nrb@latest
         - index.html (static page to show before js kicks in, js/css gets injected to head)
         - version.json (optional, for "version-update" command)
 
-#### Package.json config example
-
-```json
-{
-    "nrb": {
-        "alias": {
-            "react": "preact"
-        },
-        "resolve": {
-            "@material-ui/pickers": "node_modules/@material-ui/pickers/dist/material-ui-pickers.js",
-            "@material-ui/core": "node_modules/@material-ui/core/index.js"
-        },
-        "preload": [
-            "node_modules/preact@",
-            "node_modules/preact/",
-            "src/index"
-        ],
-        "inject": [
-            "src/inject.js"
-        ],
-        "inline": {
-            "size": 10000,
-            "extensions": [
-                "svg",
-                "png",
-                "jpg"
-            ]
-        }
-    }
-}
-```
-
 ### Usage
 
 ```
@@ -94,6 +62,8 @@ Flags:
     	Do not remove unused JSX expressions
   -legalComments string
     	what to do with legal comments, available options: none|inline|eof|linked|external (default "eof")
+  -loaders value
+    	esbuild file loaders, ie. --loaders=png:dataurl,svg:text
   -metafile
     	generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/
   -outputDir string
@@ -123,6 +93,38 @@ Flags:
     	nrb version number
   -versionfile string
     	path to version.json, relative to current work directory (default "public/version.json")
+```
+
+#### Package.json nrb config example
+
+```json
+{
+    "nrb": {
+        "alias": {
+            "react": "preact"
+        },
+        "resolve": {
+            "@material-ui/pickers": "node_modules/@material-ui/pickers/dist/material-ui-pickers.js",
+            "@material-ui/core": "node_modules/@material-ui/core/index.js"
+        },
+        "preload": [
+            "node_modules/preact@",
+            "node_modules/preact/",
+            "src/index"
+        ],
+        "inject": [
+            "src/inject.js"
+        ],
+        "inline": {
+            "size": 10000,
+            "extensions": [
+                "svg",
+                "png",
+                "jpg"
+            ]
+        }
+    }
+}
 ```
 
 ### TODO

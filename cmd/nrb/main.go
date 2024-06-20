@@ -33,7 +33,11 @@ func init() {
 }
 
 func main() {
-	flag.Parse()
+	err := flag.CommandLine.Parse(os.Args[1:])
+	if err != nil {
+		// dont need print err, CommandLine does that
+		os.Exit(1)
+	}
 
 	lib.UseColor(useColor)
 
@@ -150,12 +154,21 @@ func main() {
 		os.Exit(0)
 	}
 
-	if err := makeEnv(); err != nil {
+	mode, env, err := makeEnv()
+
+	if err != nil {
 		lib.PrintError(err)
 		os.Exit(1)
 	}
 
 	buildEsbuildConfig()
+
+	if env != "" {
+		lib.PrintInfof("loading .env file/s: %s\n", env)
+	}
+	if mode != "" {
+		lib.PrintInfof("mode: \"%s\"\n", mode)
+	}
 
 	if isWatch {
 		if err := watch(); err != nil {
@@ -171,7 +184,6 @@ func main() {
 			lib.PrintError(err)
 			os.Exit(1)
 		}
-
 		os.Exit(0)
 	}
 }
@@ -196,7 +208,7 @@ func buildEsbuildConfig() {
 
 	browserTarget := api.DefaultTarget
 
-	if customBrowserTarget != "" {
+	if customBrowserTarget == "" {
 		tspath := filepath.Join(baseDir, tsConfigPath)
 		if lib.FileExists(tspath) {
 			jsonFile, err := os.ReadFile(tspath)
@@ -217,33 +229,9 @@ func buildEsbuildConfig() {
 	}
 
 	if customBrowserTarget != "" {
-		switch customBrowserTarget {
-		case "ES2015", "es2015", "Es2015":
-			browserTarget = api.ES2015
-		case "ES2016", "es2016", "Es2016":
-			browserTarget = api.ES2016
-		case "ES2017", "es2017", "Es2017":
-			browserTarget = api.ES2017
-		case "ES2018", "es2018", "Es2018":
-			browserTarget = api.ES2018
-		case "ES2019", "es2019", "Es2019":
-			browserTarget = api.ES2019
-		case "ES2020", "es2020", "Es2020":
-			browserTarget = api.ES2020
-		case "ES2021", "es2021", "Es2021":
-			browserTarget = api.ES2021
-		case "ES2022", "es2022", "Es2022":
-			browserTarget = api.ES2022
-		case "ES2023", "es2023", "Es2023":
-			browserTarget = api.ES2023
-		case "ESNEXT", "esnext", "ESNext", "ESnext":
-			browserTarget = api.ESNext
-		case "ES5", "es5", "Es5":
-			browserTarget = api.ES5
-		case "ES6", "es6", "Es6":
-			browserTarget = api.ES2015
-		default:
-			lib.PrintError("unsupported target", customBrowserTarget)
+		browserTarget, err = lib.ParseBrowserTarget(customBrowserTarget)
+		if err != nil {
+			lib.Printe(err)
 			os.Exit(1)
 		}
 	}
@@ -284,6 +272,7 @@ func buildEsbuildConfig() {
 
 		Define: definedReplacements,
 		Inject: config.Injects,
+		Loader: cliLoaders,
 
 		Sourcemap: api.SourceMapLinked,
 		Tsconfig:  filepath.Join(baseDir, tsConfigPath),
@@ -309,7 +298,7 @@ func buildEsbuildConfig() {
 	} else if jsx == "preserve" {
 		buildOptions.JSX = api.JSXPreserve
 	} else {
-		lib.PrintError("wrong \"--jsx\" mode! (allowed: automatic|transform|preserve)")
+		lib.Printe("wrong \"--jsx\" mode! (allowed: automatic|transform|preserve)")
 		os.Exit(1)
 	}
 
@@ -326,7 +315,7 @@ func buildEsbuildConfig() {
 	} else if legalComments == "external" {
 		buildOptions.LegalComments = api.LegalCommentsExternal
 	} else {
-		lib.PrintError("wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
+		lib.Printe("wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
 		os.Exit(1)
 	}
 

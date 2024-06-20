@@ -13,8 +13,8 @@ import (
 
 var definedReplacements mapFlags
 
-func makeEnv() error {
-	envFiles = strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
+func makeEnv() (string, string, error) {
+	envFiles := strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
 	if lib.FileExists(filepath.Join(baseDir, ".env")) {
 		if envFiles != "" {
 			envFiles = ".env," + envFiles
@@ -23,10 +23,9 @@ func makeEnv() error {
 		}
 	}
 	if envFiles != "" {
-		lib.PrintInfof("loading .env file/s: %s\n", envFiles)
 		err := godotenv.Overload(strings.Split(envFiles, ",")...)
 		if err != nil {
-			return errors.Join(errors.New("cannot load .env file/s"), err)
+			return "", "", errors.Join(errors.New("cannot load .env file/s"), err)
 		}
 	}
 
@@ -36,8 +35,6 @@ func makeEnv() error {
 	} else if MODE == "" && !isWatch {
 		MODE = "production"
 	}
-
-	lib.PrintInfof("mode: \"%s\"\n", MODE)
 
 	isDevelopment := "false"
 	isProduction := "false"
@@ -83,5 +80,5 @@ func makeEnv() error {
 
 	definedReplacements = define
 
-	return nil
+	return MODE, envFiles, nil
 }
