@@ -109,7 +109,7 @@ func SetupFlags(config *Config) {
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
 	flag.StringVar(&versionPath, "versionfile", versionPath, "path to version.json, relative to current work directory")
 
-	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, ie. --loaders=png:dataurl,svg:text")
+	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json")
 }
 
 func SetupMime() {

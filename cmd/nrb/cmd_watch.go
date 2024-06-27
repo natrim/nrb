@@ -171,13 +171,37 @@ func watch() error {
 			protocol = "http://"
 		}
 
-		//TODO: gzip response
+		indexExists := lib.FileExists(filepath.Join(staticDir, "index.html"))
+		baseIndexExists := false
+		baseIndexFile := filepath.Join(baseDir, "index.html")
+		if !indexExists {
+			baseIndexExists = lib.FileExists(baseIndexFile)
+		}
+
 		broker = lib.NewStreamServer()
 		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
 				//pipe index directly to esbuild to skip loading of index by staticServer
 				if request.URL.Path == "/index.html" || filepath.Ext(request.URL.Path) == "" {
-					pipeRequestToEsbuild(writer, request)
+					if indexExists {
+						pipeRequestToEsbuild(writer, request)
+					} else if baseIndexExists {
+						readBody, err := os.ReadFile(baseIndexFile)
+
+						if err != nil {
+							error404(writer, true)
+							return
+						}
+
+						index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
+
+						writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+						writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
+						writer.WriteHeader(200)
+						_, _ = writer.Write(index)
+					} else {
+						error404(writer, true)
+					}
 					return
 				}
 

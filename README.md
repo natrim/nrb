@@ -63,7 +63,7 @@ Flags:
   -legalComments string
     	what to do with legal comments, available options: none|inline|eof|linked|external (default "eof")
   -loaders value
-    	esbuild file loaders, ie. --loaders=png:dataurl,svg:text
+    	esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json
   -metafile
     	generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/
   -outputDir string
@@ -118,7 +118,8 @@ Flags:
             "src/inject.js"
         ],
         "loaders": {
-            ".data": "json"
+            ".data": "json",
+            "txt": "copy"
         },
         "inline": {
             "size": 10000,

@@ -98,7 +98,11 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 
 	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
 	if err != nil {
-		return errors.Join(errors.New("failed to read build index.html"), err)
+		indexFile, err = os.ReadFile(filepath.Join(baseDir, "index.html"))
+
+		if err != nil {
+			return errors.Join(errors.New("failed to read build index.html"), err)
+		}
 	}
 
 	//inject main js/css if not already in index.html
