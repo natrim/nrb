@@ -128,7 +128,8 @@ Flags:
                 "png",
                 "jpg"
             ]
-        }
+        },
+        "splitting": true
     }
 }
 ```

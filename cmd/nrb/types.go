@@ -106,6 +106,7 @@ type Config struct {
 	InlineSize               int64
 	InlineExtensions         []string
 	Loaders                  loaderFlags
+	Splitting                bool
 }
 
 type PackageJson map[string]any

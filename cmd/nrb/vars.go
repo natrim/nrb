@@ -28,7 +28,6 @@ var jsxSideEffects = false
 var jsxImportSource = ""
 var jsxFactory = ""
 var jsxFragment = ""
-var splitting = false
 var sourceMap = "linked"
 var customBrowserTarget = ""
 
@@ -56,8 +55,8 @@ var cliPreloadPathsStartingWith arrayFlags
 var cliInjects arrayFlags
 var cliResolveModules mapFlags
 var cliAliasPackages mapFlags
-
 var cliLoaders loaderFlags
+var cliSplitting bool
 
 func SetupFlags(config *Config) {
 	// now start settings flags
@@ -97,8 +96,8 @@ func SetupFlags(config *Config) {
 	flag.StringVar(&jsx, "jsx", jsx, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
 	flag.StringVar(&legalComments, "legalComments", legalComments, "what to do with legal comments, available options: none|inline|eof|linked|external")
 	flag.StringVar(&sourceMap, "sourceMap", sourceMap, "what sourcemap to use, available options: none|inline|linked|external|both")
-	flag.BoolVar(&splitting, "splitting", splitting, "enable code splitting")
-	flag.BoolVar(&splitting, "split", splitting, "alias of -splitting")
+	flag.BoolVar(&cliSplitting, "splitting", cliSplitting, "enable code splitting")
+	flag.BoolVar(&cliSplitting, "split", cliSplitting, "alias of -splitting")
 
 	flag.Var(&cliPreloadPathsStartingWith, "preload", "paths to module=preload on build, overrides values from package.json, can have multiple flags, ie. --preload=src/index,node_modules/react")
 	flag.Var(&cliResolveModules, "resolve", "resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")

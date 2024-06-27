@@ -231,6 +231,9 @@ func buildEsbuildConfig() {
 	if len(cliLoaders) > 0 {
 		config.Loaders = cliLoaders
 	}
+	if lib.IsFlagPassed("splitting") || lib.IsFlagPassed("split") {
+		config.Splitting = cliSplitting
+	}
 
 	browserTarget := api.DefaultTarget
 
@@ -285,7 +288,7 @@ func buildEsbuildConfig() {
 		EntryNames:  entryNames,
 		Bundle:      true,
 		Format:      api.FormatESModule,
-		Splitting:   splitting,
+		Splitting:   config.Splitting,
 		TreeShaking: api.TreeShakingDefault, // default shakes if bundle true, or format iife
 		// moved lower to switch via flag
 		// LegalComments:     api.LegalCommentsLinked,

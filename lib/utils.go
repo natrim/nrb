@@ -2,6 +2,7 @@ package lib
 
 import (
 	"bytes"
+	"flag"
 	"io"
 	"io/fs"
 	"os"
@@ -102,4 +103,19 @@ func InjectVarsIntoIndex(indexFile []byte, entryFileName, assetsDir, publicUrl s
 func CommandExists(cmd string) bool {
 	_, err := exec.LookPath(cmd)
 	return err == nil
+}
+
+var flagsSet map[string]bool
+
+func IsFlagPassed(name string) bool {
+	if flagsSet == nil {
+		flagsSet = make(map[string]bool)
+		flag.Visit(func(f *flag.Flag) {
+			flagsSet[f.Name] = true
+		})
+	}
+
+	_, found := flagsSet[name]
+
+	return found
 }

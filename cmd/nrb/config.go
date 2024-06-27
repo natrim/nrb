@@ -132,6 +132,13 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 				}
 			}
 		}
+		if splittingRaw, ok := options["splitting"]; ok {
+			if splitting, ok := splittingRaw.(bool); ok {
+				config.Splitting = splitting
+			} else {
+				return &config, errors.New("wrong 'splitting' key in 'package.json', use boolean: true|false")
+			}
+		}
 	}
 
 	return &config, nil
