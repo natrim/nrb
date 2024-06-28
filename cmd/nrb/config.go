@@ -30,31 +30,6 @@ func parsePackageJson() (PackageJson, error) {
 	return packageJson, nil
 }
 
-func checkForVersionData() error {
-	if !lib.FileExists(filepath.Join(baseDir, versionPath)) {
-		return errors.New("no " + filepath.Join(baseDir, versionPath) + " found")
-	}
-	return nil
-}
-
-func parseVersionData() (VersionData, error) {
-	if err := checkForVersionData(); err != nil {
-		return nil, nil // not having version.json is not error for parsing, other thing will check if you have it
-	}
-
-	jsonFile, err := os.ReadFile(filepath.Join(baseDir, versionPath))
-	if err != nil {
-		return nil, err
-	}
-	var data VersionData
-	err = json.Unmarshal(jsonFile, &data)
-	if err != nil {
-		return nil, err
-	}
-
-	return data, nil
-}
-
 func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 	config := Config{}
 

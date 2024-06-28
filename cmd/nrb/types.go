@@ -110,5 +110,3 @@ type Config struct {
 }
 
 type PackageJson map[string]any
-
-type VersionData map[string]any

@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/natrim/nrb/lib"
@@ -69,19 +71,11 @@ func main() {
 		isWatch = true
 	case "serve":
 		isServe = true
-	case "cert":
-		isMakeCert = true
-	case "version":
-		isVersionGet = true
-	case "version-update":
-		isVersionUpdate = true
-	case "run":
-		npmRun = flag.Arg(1)
 	case "help":
 		isHelp = true
 	}
 
-	isHelp = isHelp || (!isVersion && !isBuild && !isServe && !isMakeCert && !isVersionGet && !isVersionUpdate && !isWatch && npmRun == "")
+	isHelp = isHelp || (!isVersion && !isBuild && !isServe && !isWatch)
 
 	if isServe || isWatch {
 		SetupMime()
@@ -89,8 +83,8 @@ func main() {
 
 	if isHelp {
 		lib.PrintInfo("Usage:", lib.Blue(filepath.Base(os.Args[0])), "[flags]", lib.Yellow("command"))
-		lib.PrintInfof("use %s with '%s' to build the app, '%s' for watch mode, '%s' to serve build folder, '%s' to update build number, '%s' for current build version, '%s' to make https certificate for watch/serve, '%s' to run npm scripts and '%s' to show this help\n",
-			lib.Yellow("command"), lib.Yellow("build"), lib.Yellow("watch"), lib.Yellow("serve"), lib.Yellow("version-update"), lib.Yellow("version"), lib.Yellow("cert"), lib.Yellow("run"), lib.Yellow("help"),
+		lib.PrintInfof("use %s with '%s' to build the app, '%s' for watch mode, '%s' to serve build folder and '%s' to show this help\n",
+			lib.Yellow("command"), lib.Yellow("build"), lib.Yellow("watch"), lib.Yellow("serve"), lib.Yellow("help"),
 		)
 		lib.Printe("Flags:")
 		flag.PrintDefaults()
@@ -99,48 +93,6 @@ func main() {
 
 	if isVersion {
 		lib.PrintInfo("NRB version is:", lib.Yellow(lib.Version))
-		os.Exit(0)
-	}
-
-	if isMakeCert {
-		if err := makeCertificate(); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
-	}
-
-	if npmRun != "" {
-		packageJson, err := parsePackageJson()
-		if err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-		if err := runNpmScript(packageJson, os.Args[3:]); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
-		lib.PrintOkf(" Run \"%s\" done.\n", npmRun)
-		os.Exit(0)
-	}
-
-	if isVersionGet {
-		if err := version(nil, false); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
-		os.Exit(0)
-	}
-
-	if isVersionUpdate {
-		if err := version(nil, true); err != nil {
-			lib.PrintError(err)
-			os.Exit(1)
-		}
-
 		os.Exit(0)
 	}
 
@@ -202,6 +154,8 @@ func main() {
 		os.Exit(0)
 	}
 }
+
+var versionData = "dev"
 
 func buildEsbuildConfig() {
 	packageJson, err := parsePackageJson()
@@ -265,17 +219,20 @@ func buildEsbuildConfig() {
 		}
 	}
 
-	versionData, err := parseVersionData()
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
+	if isBuild {
+		versionDataCmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+		if versionDataB, err := versionDataCmd.Output(); err == nil {
+			versionData = strings.TrimSpace(string(versionDataB))
+		} else {
+			lib.PrintError(err)
+			os.Exit(1)
+		}
+		lib.PrintInfo("app version:", versionData)
 	}
 
-	if versionData == nil {
-		lib.PrintItem("No versionData available")
-	} else {
-		definedReplacements["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
-		definedReplacements["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData["version"])
+	if versionData != "" {
+		definedReplacements["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
+		definedReplacements["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
 	}
 
 	buildOptions = api.BuildOptions{

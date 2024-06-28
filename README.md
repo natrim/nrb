@@ -1,6 +1,8 @@
 ## NRB
 
 - just simple builder for react app's
+- it is used mostly for my projects and work stuff
+- but maybe it will be usefull for someone else
 
 ### Installation
 
@@ -17,13 +19,12 @@ go install github.com/natrim/nrb/cmd/nrb@latest
         - index.tsx (app entry point)
     - public
         - index.html (static page to show before js kicks in, js/css gets injected to head)
-        - version.json (optional, for "version-update" command)
 
 ### Usage
 
 ```
 > Usage: nrb [flags] command
-> use command with 'build' to build the app, 'watch' for watch mode, 'serve' to serve build folder, 'version-update' to update build number, 'version' for current build version, 'cert' to make https certificate for watch/serve, 'run' to run npm scripts and 'help' to show this help
+> use command with 'build' to build the app, 'watch' for watch mode, 'serve' to serve build folder and 'help' to show this help
 Flags:
   -alias value
     	alias package with another 'package:aliasedpackage', overrides values from package.json, can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat
@@ -92,10 +93,17 @@ Flags:
     	path to tsconfig json, relative to current work directory (default "tsconfig.json")
   -v	alias of -version
   -version
-    	nrb version number
-  -versionfile string
-    	path to version.json, relative to current work directory (default "public/version.json")
+    	nrb version numberg
 ```
+
+#### HTTPS for watch/serve
+
+for example use ["mkcert"](https://mkcert.dev)
+( ie. `rm -rf ./.cert && mkdir ./.cert && mkcert -key-file ./.cert/key.pem -cert-file ./.cert/cert.pem 'localhost'` )
+
+`nrb` searches `.cert/cert.pem` and `.cert/key.pem` for certificate by default
+
+or set `ENV` variables `DEV_SERVER_CERT` and `DEV_SERVER_KEY` with paths to cert files
 
 #### Package.json nrb config example
 

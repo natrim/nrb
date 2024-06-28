@@ -60,7 +60,7 @@ func watch() error {
 	}(watcher)
 
 	watchingDirsInfo := sourceDir
-	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath), filepath.Join(baseDir, versionPath)}
+	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath)}
 	for _, vpath := range extraWatch {
 		if lib.FileExists(vpath) {
 			if err := watcher.Add(vpath); err != nil {

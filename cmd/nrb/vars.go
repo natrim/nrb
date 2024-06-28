@@ -38,9 +38,6 @@ var buildOptions api.BuildOptions
 
 var isBuild = false
 var isServe = false
-var isMakeCert = false
-var isVersionGet = false
-var isVersionUpdate = false
 var isWatch = false
 var isHelp = false
 var isVersion = false
@@ -48,8 +45,6 @@ var useColor = true
 var generateMetafile = false
 var packagePath = "package.json"
 var tsConfigPath = "tsconfig.json"
-var versionPath = "public/version.json"
-var npmRun = ""
 
 var cliPreloadPathsStartingWith arrayFlags
 var cliInjects arrayFlags
@@ -106,7 +101,6 @@ func SetupFlags(config *Config) {
 
 	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
-	flag.StringVar(&versionPath, "versionfile", versionPath, "path to version.json, relative to current work directory")
 
 	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json")
 }
