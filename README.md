@@ -1,5 +1,8 @@
 ## NRB
 
+> [!IMPORTANT]
+> **Archived due to Vite finally being able to be set right**
+
 - just simple builder for react app's
 - it is used mostly for my projects and work stuff
 - but maybe it will be usefull for someone else
