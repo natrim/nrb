@@ -46,6 +46,7 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	rw.Header().Set("X-Accel-Buffering", "no")
 	rw.Header().Set("Content-Type", "text/event-stream")
 	rw.Header().Set("Cache-Control", "no-cache")
 	rw.Header().Set("Connection", "keep-alive")
@@ -63,9 +64,10 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		broker.closingClients <- messageChan
 	}()
 
-	// Listen to connection close and un-register messageChan
+	// notify on connection closed
 	notify := req.Context().Done()
 
+	// Listen to connection close and un-register messageChan
 	go func() {
 		<-notify
 		broker.closingClients <- messageChan
@@ -75,6 +77,24 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	go func(rw http.ResponseWriter) {
 		time.Sleep(time.Millisecond * 100)
 		_, _ = rw.Write([]byte("retry: 10000\n\n"))
+		flusher.Flush()
+	}(rw)
+
+	// send periodic ping
+	go func(rw http.ResponseWriter) {
+		for {
+			select {
+			// close
+			case <-notify:
+				return
+			// ping
+			default:
+				time.Sleep(time.Millisecond * 10000)
+				_, _ = rw.Write([]byte("event: ping\n"))
+				_, _ = rw.Write([]byte(fmt.Sprintf("data: {\"time\":%d}\n\n", time.Now().Unix())))
+				flusher.Flush()
+			}
+		}
 	}(rw)
 
 	for {
