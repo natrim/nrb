@@ -61,8 +61,8 @@ func makeEnv() (string, string, error) {
 		"import.meta.env.DEV":      isDevelopment,
 
 		// metaData version
-		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"0\""),
-		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"0\""),
+		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
+		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
 	}
 
 	envAll := os.Environ()

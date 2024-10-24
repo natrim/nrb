@@ -76,9 +76,9 @@ func build(preloadPathsStartingWith arrayFlags) error {
 		}
 	}
 
-	err = os.WriteFile(filepath.Join(outputDir, "VERSION"), []byte(versionData), 0644)
+	err = os.WriteFile(filepath.Join(outputDir, "version.txt"), []byte(versionData), 0644)
 	if err != nil {
-		lib.PrintError("failed to save version", err)
+		lib.PrintError("failed to save version.txt", err)
 	}
 
 	lib.PrintItem("Building index.html file...")

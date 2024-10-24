@@ -1,11 +1,10 @@
 ## NRB
 
-> [!IMPORTANT]
-> **Archived due to Vite finally being able to be set right**
-
 - just simple builder for react app's
+- literally just replacement for CRA using esbuild
 - it is used mostly for my projects and work stuff
 - but maybe it will be usefull for someone else
+- no HMR, just fast page reload
 
 ### Installation
 
@@ -22,6 +21,7 @@ go install github.com/natrim/nrb/cmd/nrb@latest
         - index.tsx (app entry point)
     - public
         - index.html (static page to show before js kicks in, js/css gets injected to head)
+        - version.txt (generated on build, contains git hash)
 
 ### Usage
 
@@ -96,7 +96,7 @@ Flags:
     	path to tsconfig json, relative to current work directory (default "tsconfig.json")
   -v	alias of -version
   -version
-    	nrb version numberg
+    	nrb version
 ```
 
 #### HTTPS for watch/serve
