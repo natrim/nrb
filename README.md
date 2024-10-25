@@ -21,7 +21,7 @@ go install github.com/natrim/nrb/cmd/nrb@latest
         - index.tsx (app entry point)
     - public
         - index.html (static page to show before js kicks in, js/css gets injected to head)
-        - version.txt (generated on build, contains git hash)
+        - version.json (generated on build, contains build hash)
 
 ### Usage
 
