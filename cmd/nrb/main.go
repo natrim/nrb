@@ -224,8 +224,10 @@ func buildEsbuildConfig() {
 		if versionDataB, err := versionDataCmd.Output(); err == nil {
 			versionData = strings.TrimSpace(string(versionDataB))
 		} else {
-			lib.PrintError(err)
-			os.Exit(1)
+			//			lib.PrintError(err)
+			//			os.Exit(1)
+			lib.PrintWarn("git not found, using random for appVersion")
+			versionData = lib.RandString(8)
 		}
 		lib.PrintInfo("app version:", versionData)
 	}

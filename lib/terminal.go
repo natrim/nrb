@@ -23,15 +23,17 @@ var OK = "✓"
 var RELOAD = "↻"
 var ITEM = "-"
 var DASH = "–"
+var WARN = "⚠"
 
 func UseColor(use bool) {
 	if use {
 		ERR = Red(ERR)
-		INFO = Yellow(INFO)
+		INFO = Cyan(INFO)
 		OK = Green(OK)
 		RELOAD = Blue(RELOAD)
 		ITEM = Magenta(ITEM)
 		DASH = Blue(DASH)
+		WARN = Yellow(WARN)
 	}
 }
 
@@ -73,6 +75,14 @@ func PrintOk(a ...any) {
 
 func PrintOkf(format string, a ...any) {
 	_, _ = fmt.Fprintf(os.Stdout, "%s "+format, append([]any{OK}, a...)...)
+}
+
+func PrintWarn(a ...any) {
+	_, _ = fmt.Fprintln(os.Stdout, append([]any{WARN}, a...)...)
+}
+
+func PrintWarnf(format string, a ...any) {
+	_, _ = fmt.Fprintf(os.Stdout, "%s "+format, append([]any{WARN}, a...)...)
 }
 
 func PrintItem(a ...any) {
