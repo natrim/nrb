@@ -35,3 +35,6 @@ update-deps: #update project deps
 
 install: #install project as cli bin
 	go install $(GO_FLAGS) ./...
+
+release:
+	goreleaser release --clean

@@ -8,6 +8,14 @@
 
 ### Installation
 
+Download from [Release page](https://github.com/natrim/nrb/releases)
+
+And copy somewhere in your PATH
+
+**OR**
+
+build from source with golang
+
 ```shell
 go install github.com/natrim/nrb/cmd/nrb@latest
 ```
