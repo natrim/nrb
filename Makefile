@@ -1,7 +1,7 @@
 
 # Set lib.Version variable with current hash
 PACKAGE := github.com/natrim/nrb
-VERSION := $(shell git rev-parse --short HEAD)
+VERSION := $(shell git describe --abbrev=0 --tags)
 LDFLAGS := -X '$(PACKAGE)/lib.Version=$(VERSION)'
 
 # Strip debug info (-s -w)
