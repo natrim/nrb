@@ -106,6 +106,8 @@ func ParseBrowserTarget(customBrowserTarget string) (api.Target, error) {
 		return api.ES2022, nil
 	case "ES2023", "es2023", "Es2023":
 		return api.ES2023, nil
+	case "ES2024", "es2024", "Es2024":
+		return api.ES2024, nil
 	case "ESNEXT", "esnext", "ESNext", "ESnext":
 		return api.ESNext, nil
 	case "ES5", "es5", "Es5":
@@ -115,6 +117,6 @@ func ParseBrowserTarget(customBrowserTarget string) (api.Target, error) {
 	case "default", "Default", "none", " ", "":
 		return api.DefaultTarget, nil
 	default:
-		return api.DefaultTarget, fmt.Errorf("unsupported target: %q, valid targets are \"es5\", \"es6\", \"es2015\", \"es2016\", \"es2017\", \"es2018\", \"es2019\", \"es2020\", \"es2021\", \"es2022\", \"es2023\", \"esnext\", \"default\"", customBrowserTarget)
+		return api.DefaultTarget, fmt.Errorf("unsupported target: %q, valid targets are \"es5\", \"es6\", \"es2015\", \"es2016\", \"es2017\", \"es2018\", \"es2019\", \"es2020\", \"es2021\", \"es2022\", \"es2023\", \"es2024\", \"esnext\", \"default\"", customBrowserTarget)
 	}
 }

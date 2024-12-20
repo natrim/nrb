@@ -57,7 +57,6 @@ func InlinePlugin(customLimit int64, customExtensions []string) api.Plugin {
 							Contents: &contents,
 							Loader:   api.LoaderDataURL,
 						}, nil
-
 					}
 					return api.OnLoadResult{
 						Loader: api.LoaderFile,

@@ -25,7 +25,7 @@ var protocol string
 var broker *lib.Broker
 var changedNames []string
 
-var reloadJS = "(()=>{if(window.esIn)return;window.esIn=true;function c(){var s=new EventSource(\"/esbuild\");s.onerror=()=>{s.close();setTimeout(c,10000)};s.onmessage=()=>{window.location.reload()}}c()})();"
+var reloadJS = "(()=>{if(!window.nrbIn){window.nrbIn=1;var lim=0;function c(){var s=new EventSource(\"/esbuild\");s.onopen=()=>{lim=0};s.onerror=()=>{s.close();lim++;if(lim>=30)window.location.reload();else setTimeout(c,10000)};s.onmessage=()=>{s.close();window.location.reload()}}c()}})();"
 
 func watch() error {
 	if staticDir == "" {
@@ -113,7 +113,7 @@ func watch() error {
 						}
 						lib.PrintReload("Config change detected, reloading esbuild...")
 						time.Sleep(250 * time.Millisecond)
-						broker.Notifier <- []byte("update")
+						broker.Notifier <- []byte("reload")
 					}
 					continue
 				}
@@ -159,7 +159,7 @@ func watch() error {
 			case <-timer.C:
 				lib.PrintReload("Change detected, reloading...")
 				changedNames = nil
-				broker.Notifier <- []byte("update")
+				broker.Notifier <- []byte("reload")
 			}
 		}
 	}()
@@ -178,7 +178,6 @@ func watch() error {
 			baseIndexExists = lib.FileExists(baseIndexFile)
 		}
 
-		broker = lib.NewStreamServer()
 		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
 				//pipe index directly to esbuild to skip loading of index by staticServer
@@ -208,8 +207,9 @@ func watch() error {
 				next(writer, request)
 			}
 		})
-
 		http.HandleFunc("/", fileServer)
+
+		broker = lib.NewStreamServer()
 		http.Handle("/esbuild", broker)
 
 		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
