@@ -411,7 +411,7 @@ func startEsbuildServe() (api.BuildContext, error) {
 	// start esbuild server
 	server, err := ctx.Serve(api.ServeOptions{
 		Servedir: staticDir,
-		Port:     proxyPort,
+		Port:     int(proxyPort),
 		Host:     host,
 	})
 
@@ -421,7 +421,7 @@ func startEsbuildServe() (api.BuildContext, error) {
 
 	// sync values used by esbuild to real used ones
 	proxyPort = server.Port
-	// nope- host = server.Host
+	// nope- host = server.Hosts[0]
 
 	//lib.PrintOk("Esbuild start done")
 
