@@ -57,8 +57,8 @@ func build(preloadPathsStartingWith arrayFlags) error {
 		lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 		errs := make([]error, len(result.Errors))
-		for _, err := range result.Errors {
-			errs = append(errs, errors.New("-*- "+err.Text))
+		for i, err := range result.Errors {
+			errs[i] = errors.New("-*- " + err.Text)
 		}
 		return errors.Join(errs...)
 	}
@@ -134,9 +134,11 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
-			var replace [][]byte
+			var replace = make([][]byte, len(chunksToPreload))
+			var index = 0
 			for chunk := range chunksToPreload {
-				replace = append(replace, []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>`, publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))))
+				replace[index] = []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>`, publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir)))
+				index++
 			}
 			indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
 		}
