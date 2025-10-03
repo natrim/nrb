@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,7 +75,7 @@ func build(preloadPathsStartingWith arrayFlags) error {
 		}
 	}
 
-	err = os.WriteFile(filepath.Join(outputDir, "version.json"), []byte(fmt.Sprintf("{\"hash\":\"%s\",\"time\":%d}", versionData, start.Unix())), 0644)
+	err = os.WriteFile(filepath.Join(outputDir, "version.json"), fmt.Appendf(nil, "{\"hash\":\"%s\",\"time\":%d}", versionData, start.Unix()), 0644)
 	if err != nil {
 		lib.PrintError("failed to save version.json", err)
 	}
@@ -118,7 +117,7 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 		var chunksToPreload = make(map[string]bool)
 		for chunk, m := range metafile.Outputs {
 			for i := range m.Inputs {
-				if _, exists := chunksToPreload[chunk]; exists {
+				if exists := chunksToPreload[chunk]; exists {
 					continue
 				}
 				for _, p := range preloadPathsStartingWith {
@@ -132,15 +131,14 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 		if len(chunksToPreload) > 0 {
 			publicUrl := strings.TrimSuffix(publicUrl, "/")
 			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
-			findP := regexp.MustCompile(fmt.Sprintf(`<link rel=(["']?)modulepreload(["']?) href=(["']?)%s/%s/%s\.js(["']?)( ?/?)>`, publicUrl, assetsDir, indexFileName))
+			findP := regexp.MustCompile(fmt.Sprintf("<link rel=([\"']?)modulepreload([\"']?) href=([\"']?)%s/%s/%s\\.js([\"']?)( ?/?)>(\n?)", publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
-			var replace = make([][]byte, len(chunksToPreload))
-			var index = 0
+			var replace []byte
 			for chunk := range chunksToPreload {
-				replace[index] = []byte(fmt.Sprintf(`<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>`, publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir)))
-				index++
+				replace = fmt.Appendf(replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))
 			}
-			indexFile = findP.ReplaceAll(indexFile, bytes.Join(replace, []byte("\n")))
+			// replace modulepreload index.js with modulepreload index.js and others
+			indexFile = findP.ReplaceAll(indexFile, replace)
 		}
 	}
 

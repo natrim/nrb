@@ -1,9 +1,10 @@
 package plugins
 
 import (
-	"github.com/evanw/esbuild/pkg/api"
 	"os"
 	"strings"
+
+	"github.com/evanw/esbuild/pkg/api"
 )
 
 // InlinePluginDefault is a plugin to inline your images with default settings
@@ -21,14 +22,19 @@ func InlinePlugin(customLimit int64, customExtensions []string) api.Plugin {
 	if limit <= 0 {
 		limit = 100000
 	}
-	var filter = "\\.("
+	var filter strings.Builder
+	filter.WriteString("\\.(")
+	count := 0
 	for _, ext := range extensions {
 		if ext != "" {
-			filter += escapeRegExp(strings.TrimPrefix(ext, ".")) + "|"
+			if count > 0 {
+				filter.WriteString("|")
+			}
+			filter.WriteString(escapeRegExp(strings.TrimPrefix(ext, ".")))
+			count++
 		}
 	}
-	filter = strings.TrimSuffix(filter, "|")
-	filter += ")$"
+	filter.WriteString(")$")
 	return api.Plugin{
 		Name: "inline",
 		Setup: func(build api.PluginBuild) {
@@ -41,7 +47,7 @@ func InlinePlugin(customLimit int64, customExtensions []string) api.Plugin {
 				}
 			}
 
-			build.OnLoad(api.OnLoadOptions{Filter: filter},
+			build.OnLoad(api.OnLoadOptions{Filter: filter.String()},
 				func(args api.OnLoadArgs) (api.OnLoadResult, error) {
 					stat, err := os.Stat(args.Path)
 					if err != nil {

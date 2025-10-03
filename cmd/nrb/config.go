@@ -39,7 +39,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 
 		if alias, ok := options["alias"]; ok {
 			if _, ok = alias.(map[string]any); ok {
-				config.AliasPackages = make(mapFlags)
+				config.AliasPackages = make(mapFlags, len(alias.(map[string]any)))
 				for name, aliasPath := range alias.(map[string]any) {
 					config.AliasPackages[name] = fmt.Sprintf("%v", aliasPath)
 				}
@@ -49,7 +49,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if loader, ok := options["loaders"]; ok {
 			if _, ok = loader.(map[string]any); ok {
-				config.Loaders = make(loaderFlags)
+				config.Loaders = make(loaderFlags, len(loader.(map[string]any)))
 				for ext, loaderString := range loader.(map[string]any) {
 					l, err := lib.ParseLoader(loaderString.(string))
 					if err != nil {
@@ -63,7 +63,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if resolve, ok := options["resolve"]; ok {
 			if _, ok = resolve.(map[string]any); ok {
-				config.ResolveModules = make(mapFlags)
+				config.ResolveModules = make(mapFlags, len(resolve.(map[string]any)))
 				for name, resolvePath := range resolve.(map[string]any) {
 					config.ResolveModules[name] = fmt.Sprintf("%v", resolvePath)
 				}

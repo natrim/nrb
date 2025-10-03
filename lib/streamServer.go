@@ -91,7 +91,7 @@ func (broker *Broker) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			default:
 				time.Sleep(time.Millisecond * 10000)
 				_, _ = rw.Write([]byte("event: ping\n"))
-				_, _ = rw.Write([]byte(fmt.Sprintf("data: {\"time\":%d}\n\n", time.Now().Unix())))
+				_, _ = rw.Write(fmt.Appendf(nil, "data: {\"time\":%d}\n\n", time.Now().Unix()))
 				flusher.Flush()
 			}
 		}

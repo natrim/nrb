@@ -238,14 +238,31 @@ func watch() error {
 	return <-done
 }
 
+var ignoreDirs = map[string]bool{
+	".git":         true,
+	".svn":         true,
+	".hg":          true,
+	".jj":          true,
+	".idea":        true,
+	".vscode":      true,
+	".zed":         true,
+	".fleet":       true,
+	".next":        true,
+	".cert":        true,
+	".eslintcache": true,
+	".cache":       true,
+}
+
 // watchDir gets run as a walk func, searching for directories to add watchers to
 func watchDir(watcher *fsnotify.Watcher) fs.WalkDirFunc {
 	return func(path string, fi os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if fi.IsDir() && fi.Name() != ".git" && fi.Name() != ".svn" && fi.Name() != ".hg" {
-			return watcher.Add(path)
+		if fi.IsDir() {
+			if ok := ignoreDirs[fi.Name()]; !ok {
+				return watcher.Add(path)
+			}
 		}
 		return nil
 	}
@@ -257,8 +274,10 @@ func watchDir(watcher *fsnotify.Watcher) fs.WalkDirFunc {
 //		if err != nil {
 //			return err
 //		}
-//		if fi.IsDir() && fi.Name() != ".git" && fi.Name() != ".svn" && fi.Name() != ".hg" {
-//			return watcher.Remove(path)
+// 		if fi.IsDir() {
+// 			if ok := ignoreDirs[fi.Name()]; !ok {
+// 				return watcher.Remove(path)
+// 			}
 //		}
 //		return nil
 //	}

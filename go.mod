@@ -1,9 +1,9 @@
 module github.com/natrim/nrb
 
-go 1.23
+go 1.25
 
 require (
-	github.com/evanw/esbuild v0.25.9
+	github.com/evanw/esbuild v0.25.10
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/joho/godotenv v1.5.1
 )

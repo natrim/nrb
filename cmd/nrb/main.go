@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/evanw/esbuild/pkg/api"
 	"github.com/natrim/nrb/lib"
@@ -224,10 +225,10 @@ func buildEsbuildConfig() {
 		if versionDataB, err := versionDataCmd.Output(); err == nil {
 			versionData = strings.TrimSpace(string(versionDataB))
 		} else {
-			//			lib.PrintError(err)
-			//			os.Exit(1)
-			lib.PrintWarn("git not found, using random for appVersion")
-			versionData = lib.RandString(8)
+			// lib.PrintError(err)
+			// os.Exit(1)
+			lib.PrintWarn("git not found, using datetime for appVersion")
+			versionData = time.Now().Format("v20060102150405")
 		}
 		lib.PrintInfo("app version:", versionData)
 	}
@@ -281,45 +282,48 @@ func buildEsbuildConfig() {
 		JSXSideEffects:  jsxSideEffects,
 	}
 
-	if jsx == "automatic" {
+	switch jsx {
+	case "automatic":
 		buildOptions.JSX = api.JSXAutomatic
-	} else if jsx == "transform" {
+	case "transform":
 		buildOptions.JSX = api.JSXTransform
-	} else if jsx == "preserve" {
+	case "preserve":
 		buildOptions.JSX = api.JSXPreserve
-	} else {
+	default:
 		lib.Printe("wrong \"--jsx\" mode! (allowed: automatic|transform|preserve)")
 		os.Exit(1)
 	}
 
-	if legalComments == "default" {
+	switch legalComments {
+	case "default":
 		buildOptions.LegalComments = api.LegalCommentsDefault
-	} else if legalComments == "none" {
+	case "none":
 		buildOptions.LegalComments = api.LegalCommentsNone
-	} else if legalComments == "inline" {
+	case "inline":
 		buildOptions.LegalComments = api.LegalCommentsInline
-	} else if legalComments == "eof" {
+	case "eof":
 		buildOptions.LegalComments = api.LegalCommentsEndOfFile
-	} else if legalComments == "linked" {
+	case "linked":
 		buildOptions.LegalComments = api.LegalCommentsLinked
-	} else if legalComments == "external" {
+	case "external":
 		buildOptions.LegalComments = api.LegalCommentsExternal
-	} else {
+	default:
 		lib.Printe("wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
 		os.Exit(1)
 	}
 
-	if sourceMap == "none" {
+	switch sourceMap {
+	case "none":
 		buildOptions.Sourcemap = api.SourceMapNone
-	} else if sourceMap == "inline" {
+	case "inline":
 		buildOptions.Sourcemap = api.SourceMapInline
-	} else if sourceMap == "linked" {
+	case "linked":
 		buildOptions.Sourcemap = api.SourceMapLinked
-	} else if sourceMap == "external" {
+	case "external":
 		buildOptions.Sourcemap = api.SourceMapExternal
-	} else if sourceMap == "both" {
+	case "both":
 		buildOptions.Sourcemap = api.SourceMapInlineAndExternal
-	} else {
+	default:
 		lib.Printe("wrong \"--sourceMap\" value! (allowed: none|inline|linked|external|both)")
 		os.Exit(1)
 	}
