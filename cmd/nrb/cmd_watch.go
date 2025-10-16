@@ -59,18 +59,28 @@ func watch() error {
 		_ = watcher.Close()
 	}(watcher)
 
-	watchingDirsInfo := sourceDir
+	// what are we watching?
+	var watchingDirsInfo strings.Builder
+
+	// sauce
+	watchingDirsInfo.WriteString(sourceDir)
+
+	// some extras ( just tsconfig and package json's for now )
 	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath)}
 	for _, vpath := range extraWatch {
 		if lib.FileExists(vpath) {
 			if err := watcher.Add(vpath); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
 				return err
 			}
-			watchingDirsInfo += ", " + vpath
+			watchingDirsInfo.WriteString(", ")
+			watchingDirsInfo.WriteString(vpath)
 		}
 	}
 
-	lib.PrintInfo("watching:", watchingDirsInfo)
+	lib.PrintInfo("watching:", watchingDirsInfo.String())
 
 	absWalkPath := lib.RealQuickPath(sourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
@@ -321,7 +331,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 		// esbuild errors
 		if isIndex && resp.StatusCode == http.StatusServiceUnavailable && strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte(fmt.Sprintf("<!doctype html><head><meta charset=utf-8><title>error</title><script>%s</script></head><body><pre>", reloadJS)))
+			_, _ = fmt.Fprintf(w, "<!doctype html><head><meta charset=utf-8><title>error</title><script>%s</script></head><body><pre>", reloadJS)
 			_, err := io.Copy(w, resp.Body)
 			if err != nil {
 				_, _ = w.Write([]byte("Error: cannot build app"))

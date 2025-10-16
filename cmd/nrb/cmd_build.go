@@ -22,8 +22,6 @@ func build(preloadPathsStartingWith arrayFlags) error {
 	if err != nil {
 		return errors.Join(errors.New("failed to clean build directory"), err)
 	}
-	// dont remake as we make copy of static dir:
-	// os.MkdirAll(outputDir, 0755)
 
 	lib.PrintOk("Cleaned output dir")
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
@@ -37,6 +35,8 @@ func build(preloadPathsStartingWith arrayFlags) error {
 
 		lib.PrintOk("Copied static files to output dir")
 		lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
+	} else {
+		os.MkdirAll(outputDir, 0755)
 	}
 
 	lib.PrintItem("Building..")
@@ -133,12 +133,12 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 			findP := regexp.MustCompile(fmt.Sprintf("<link rel=([\"']?)modulepreload([\"']?) href=([\"']?)%s/%s/%s\\.js([\"']?)( ?/?)>(\n?)", publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
-			var replace []byte
+			var replace strings.Builder
 			for chunk := range chunksToPreload {
-				replace = fmt.Appendf(replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))
+				fmt.Fprintf(&replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))
 			}
 			// replace modulepreload index.js with modulepreload index.js and others
-			indexFile = findP.ReplaceAll(indexFile, replace)
+			indexFile = findP.ReplaceAll(indexFile, []byte(replace.String()))
 		}
 	}
 
