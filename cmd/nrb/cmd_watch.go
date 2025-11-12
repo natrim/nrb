@@ -60,7 +60,7 @@ func watch() error {
 	}(watcher)
 
 	// what are we watching?
-	var watchingDirsInfo strings.Builder
+	watchingDirsInfo := strings.Builder{}
 
 	// sauce
 	watchingDirsInfo.WriteString(sourceDir)

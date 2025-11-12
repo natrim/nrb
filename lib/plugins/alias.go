@@ -15,7 +15,7 @@ func AliasPlugin(aliases map[string]string) api.Plugin {
 			},
 		}
 	}
-	var filter strings.Builder
+	filter := strings.Builder{}
 	filter.WriteString("^(")
 	count := len(aliases)
 	for alias := range aliases {

@@ -133,7 +133,7 @@ func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) err
 			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
 			findP := regexp.MustCompile(fmt.Sprintf("<link rel=([\"']?)modulepreload([\"']?) href=([\"']?)%s/%s/%s\\.js([\"']?)( ?/?)>(\n?)", publicUrl, assetsDir, indexFileName))
 			saveIndexFile = true
-			var replace strings.Builder
+			replace := strings.Builder{}
 			for chunk := range chunksToPreload {
 				fmt.Fprintf(&replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))
 			}

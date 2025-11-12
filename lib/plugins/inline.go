@@ -22,7 +22,7 @@ func InlinePlugin(customLimit int64, customExtensions []string) api.Plugin {
 	if limit <= 0 {
 		limit = 100000
 	}
-	var filter strings.Builder
+	filter := strings.Builder{}
 	filter.WriteString("\\.(")
 	count := 0
 	for _, ext := range extensions {

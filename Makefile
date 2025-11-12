@@ -18,7 +18,7 @@ list: #list all commands
 build: cmd/nrb/*.go lib/*/*.go go.mod #build cli
 	CGO_ENABLED=0 go build $(GO_FLAGS) ./cmd/nrb
 
-analyse: #escaoe analysis
+analyse: #escape analysis
 	CGO_ENABLED=0 go run -ldflags="$(LDFLAGS)" -gcflags="-m" -trimpath ./cmd/nrb -v
 
 lint: #lint project
