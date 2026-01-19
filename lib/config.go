@@ -1,23 +1,33 @@
-package main
+package lib
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-
-	"github.com/natrim/nrb/lib"
 )
 
-func parsePackageJson() (PackageJson, error) {
-	if !lib.FileExists(filepath.Join(baseDir, packagePath)) {
-		return nil, errors.New("no " + filepath.Join(baseDir, packagePath) + " found")
+type Config struct {
+	AliasPackages            MapFlags
+	ResolveModules           MapFlags
+	PreloadPathsStartingWith ArrayFlags
+	Injects                  ArrayFlags
+	InlineSize               int64
+	InlineExtensions         []string
+	Loaders                  LoaderFlags
+	Splitting                bool
+}
+
+type PackageJson map[string]any
+
+func ParsePackageJson(packagePath string) (PackageJson, error) {
+	if !FileExists(packagePath) {
+		return nil, errors.New("no " + packagePath + " found")
 	}
 
-	jsonFile, err := os.ReadFile(filepath.Join(baseDir, packagePath))
+	jsonFile, err := os.ReadFile(packagePath)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +40,7 @@ func parsePackageJson() (PackageJson, error) {
 	return packageJson, nil
 }
 
-func parseJsonConfig(packageJson PackageJson) (*Config, error) {
+func ParseJsonConfig(packageJson PackageJson) (*Config, error) {
 	config := Config{}
 
 	// check for alias/resolve/preload/inject options from package.json
@@ -39,7 +49,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 
 		if alias, ok := options["alias"]; ok {
 			if _, ok = alias.(map[string]any); ok {
-				config.AliasPackages = make(mapFlags, len(alias.(map[string]any)))
+				config.AliasPackages = make(MapFlags, len(alias.(map[string]any)))
 				for name, aliasPath := range alias.(map[string]any) {
 					config.AliasPackages[name] = fmt.Sprintf("%v", aliasPath)
 				}
@@ -49,9 +59,9 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if loader, ok := options["loaders"]; ok {
 			if _, ok = loader.(map[string]any); ok {
-				config.Loaders = make(loaderFlags, len(loader.(map[string]any)))
+				config.Loaders = make(LoaderFlags, len(loader.(map[string]any)))
 				for ext, loaderString := range loader.(map[string]any) {
-					l, err := lib.ParseLoader(loaderString.(string))
+					l, err := ParseLoader(loaderString.(string))
 					if err != nil {
 						return &config, fmt.Errorf("wrong 'loaders' value in 'package.json': %q = %q", ext, loaderString)
 					}
@@ -63,7 +73,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if resolve, ok := options["resolve"]; ok {
 			if _, ok = resolve.(map[string]any); ok {
-				config.ResolveModules = make(mapFlags, len(resolve.(map[string]any)))
+				config.ResolveModules = make(MapFlags, len(resolve.(map[string]any)))
 				for name, resolvePath := range resolve.(map[string]any) {
 					config.ResolveModules[name] = fmt.Sprintf("%v", resolvePath)
 				}
@@ -73,7 +83,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if preload, ok := options["preload"]; ok {
 			if _, ok = preload.([]any); ok {
-				config.PreloadPathsStartingWith = make(arrayFlags, len(preload.([]any)))
+				config.PreloadPathsStartingWith = make(ArrayFlags, len(preload.([]any)))
 				for i, pr := range preload.([]any) {
 					config.PreloadPathsStartingWith[i] = fmt.Sprintf("%v", pr)
 				}
@@ -83,7 +93,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 		}
 		if inject, ok := options["inject"]; ok {
 			if _, ok = inject.([]any); ok {
-				config.Injects = make(arrayFlags, len(inject.([]any)))
+				config.Injects = make(ArrayFlags, len(inject.([]any)))
 				for i, p := range inject.([]any) {
 					config.Injects[i] = fmt.Sprintf("%v", p)
 				}
@@ -98,7 +108,7 @@ func parseJsonConfig(packageJson PackageJson) (*Config, error) {
 			}
 			if inlineExts, ok := inline.(map[string]any)["extensions"]; ok {
 				if _, ok = inlineExts.([]any); ok {
-					config.InlineExtensions = make(arrayFlags, len(inlineExts.([]any)))
+					config.InlineExtensions = make(ArrayFlags, len(inlineExts.([]any)))
 					for i, pr := range inlineExts.([]any) {
 						config.InlineExtensions[i] = fmt.Sprintf("%v", pr)
 					}

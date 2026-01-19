@@ -62,6 +62,10 @@ Flags:
     	host (default "localhost")
   -inject value
     	allows you to automatically replace a global variable with an import from another file, overrides values from package.json, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js
+  -inline value
+        file extensions to inline as base64 dataurls, overrides values from package.json, ie. --inline=png,jpg,svg
+  -inlineSize int
+        set max file size to inline as base64 dataurls as int in bytes, default is 0 which inlines ALL, overrides values from package.json, ie. for 10kb set --inlineSize=10000
   -jsx string
     	tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve (default "automatic")
   -jsxFactory string
@@ -104,7 +108,7 @@ Flags:
     	path to tsconfig json, relative to current work directory (default "tsconfig.json")
   -v	alias of -version
   -version
-    	nrb version
+    	nrb version number
 ```
 
 #### HTTPS for watch/serve

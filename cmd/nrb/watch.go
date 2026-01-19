@@ -28,16 +28,24 @@ var changedNames []string
 var reloadJS = "(()=>{if(!window.nrbIn){window.nrbIn=1;var lim=0;function c(){var s=new EventSource(\"/esbuild\");s.onopen=()=>{lim=0};s.onerror=()=>{s.close();lim++;if(lim>=30)window.location.reload();else setTimeout(c,10000)};s.onmessage=()=>{s.close();window.location.reload()}}c()}})();"
 
 func watch() error {
+	// setup web server vars
+	SetupWebServer()
+
+	// prepare esbuild build options
+	buildEsbuildConfig(false)
+
+	// fix empty source dir
 	if staticDir == "" {
 		staticDir = "."
 	}
 
+	// start esbuild server
 	esbuildContext, err := startEsbuildServe()
 	if err != nil {
 		return err
 	}
 
-	// wait a bit cause stuff
+	// wait a bit, cause stuff needs to settle
 	time.Sleep(250 * time.Millisecond)
 
 	// schedule esbuild context cleanup
@@ -115,7 +123,7 @@ func watch() error {
 							esbuildContext.Dispose()
 							esbuildContext = nil
 						}
-						buildEsbuildConfig()
+						buildEsbuildConfig(false)
 						esbuildContext, err = startEsbuildServe()
 						if err != nil {
 							lib.PrintError(err)
@@ -249,18 +257,22 @@ func watch() error {
 }
 
 var ignoreDirs = map[string]bool{
-	".git":         true,
-	".svn":         true,
-	".hg":          true,
-	".jj":          true,
-	".idea":        true,
-	".vscode":      true,
-	".zed":         true,
-	".fleet":       true,
-	".next":        true,
-	".cert":        true,
-	".eslintcache": true,
-	".cache":       true,
+	".git":          true,
+	".github":       true,
+	".svn":          true,
+	".hg":           true,
+	".jj":           true,
+	".idea":         true,
+	".vscode":       true,
+	".zed":          true,
+	".fleet":        true,
+	".next":         true,
+	".vite":         true,
+	".parcel-cache": true,
+	".cert":         true,
+	".eslintcache":  true,
+	".cache":        true,
+	".config":       true,
 }
 
 // watchDir gets run as a walk func, searching for directories to add watchers to
@@ -346,7 +358,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	// copy esbuild headers
 	copyHeaders(w.Header(), resp.Header)
 
-	// replace custom vars in index.html nad inject js/css scripts from esbuild
+	// replace custom vars in index.html and inject js/css scripts from esbuild
 	if isIndex {
 		// read esbuild response
 		readBody, err := io.ReadAll(resp.Body)
@@ -450,7 +462,7 @@ func startEsbuildServe() (api.BuildContext, error) {
 
 	// sync values used by esbuild to real used ones
 	proxyPort = server.Port
-	// nope- host = server.Hosts[0]
+	// nope, dont need to know/change - host = server.Hosts[0]
 
 	//lib.PrintOk("Esbuild start done")
 

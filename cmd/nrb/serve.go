@@ -9,6 +9,7 @@ import (
 )
 
 func serve() error {
+	SetupWebServer()
 	fileServer := lib.WrappedFileServer(outputDir)
 	http.Handle("/", fileServer)
 	var protocol string

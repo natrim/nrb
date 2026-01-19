@@ -14,8 +14,14 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
-func build(preloadPathsStartingWith arrayFlags) error {
+func build(preloadPathsStartingWith lib.ArrayFlags) error {
 	start := time.Now()
+
+	// prepare esbuild build options
+	buildEsbuildConfig(true)
+
+	lib.PrintOk("Init done")
+	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// remove output directory
 	err := os.RemoveAll(outputDir)
@@ -93,7 +99,7 @@ func build(preloadPathsStartingWith arrayFlags) error {
 	return nil
 }
 
-func makeIndex(preloadPathsStartingWith arrayFlags, result *api.BuildResult) error {
+func makeIndex(preloadPathsStartingWith lib.ArrayFlags, result *api.BuildResult) error {
 	var metafile Metadata
 	err := json.Unmarshal([]byte(result.Metafile), &metafile)
 	if err != nil {

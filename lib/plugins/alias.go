@@ -15,20 +15,21 @@ func AliasPlugin(aliases map[string]string) api.Plugin {
 			},
 		}
 	}
-	filter := strings.Builder{}
-	filter.WriteString("^(")
-	count := len(aliases)
-	for alias := range aliases {
-		filter.WriteString(escapeRegExp(alias))
-		if count > 1 {
-			filter.WriteString("|")
-		}
-		count--
-	}
-	filter.WriteString(")$")
 	return api.Plugin{
 		Name: "alias",
 		Setup: func(build api.PluginBuild) {
+			filter := strings.Builder{}
+			filter.WriteString("^(")
+			count := len(aliases)
+			for alias := range aliases {
+				filter.WriteString(escapeRegExp(alias))
+				if count > 1 {
+					filter.WriteString("|")
+				}
+				count--
+			}
+			filter.WriteString(")$")
+
 			build.OnResolve(api.OnResolveOptions{Filter: filter.String()},
 				func(args api.OnResolveArgs) (api.OnResolveResult, error) {
 					return api.OnResolveResult{

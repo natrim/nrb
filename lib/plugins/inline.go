@@ -9,51 +9,54 @@ import (
 
 // InlinePluginDefault is a plugin to inline your images with default settings
 func InlinePluginDefault() api.Plugin {
-	return InlinePlugin(0, nil)
+	return InlinePlugin(100000, []string{"svg", "png", "jpeg", "jpg", "gif", "webp", "avif"})
 }
 
 // InlinePlugin is a plugin to inline your images
-func InlinePlugin(customLimit int64, customExtensions []string) api.Plugin {
-	extensions := customExtensions
-	if len(customExtensions) == 0 {
-		extensions = []string{"svg", "png", "jpeg", "jpg", "gif", "webp", "avif"}
-	}
-	limit := customLimit
-	if limit <= 0 {
-		limit = 100000
-	}
-	filter := strings.Builder{}
-	filter.WriteString("\\.(")
-	count := 0
-	for _, ext := range extensions {
-		if ext != "" {
-			if count > 0 {
-				filter.WriteString("|")
-			}
-			filter.WriteString(escapeRegExp(strings.TrimPrefix(ext, ".")))
-			count++
+func InlinePlugin(limit int64, extensions []string) api.Plugin {
+	if len(extensions) == 0 {
+		return api.Plugin{
+			Name: "inline-stub",
+			Setup: func(build api.PluginBuild) {
+			},
 		}
 	}
-	filter.WriteString(")$")
 	return api.Plugin{
 		Name: "inline",
 		Setup: func(build api.PluginBuild) {
 			if build.InitialOptions.Loader == nil {
 				build.InitialOptions.Loader = map[string]api.Loader{}
 			}
+
+			filter := strings.Builder{}
+			filter.WriteString("\\.(")
+			count := 0
 			for _, ext := range extensions {
 				if ext != "" {
 					build.InitialOptions.Loader["."+strings.TrimPrefix(ext, ".")] = api.LoaderFile
+
+					if count > 0 {
+						filter.WriteString("|")
+					}
+					filter.WriteString(escapeRegExp(strings.TrimPrefix(ext, ".")))
+					count++
 				}
 			}
+			filter.WriteString(")$")
 
 			build.OnLoad(api.OnLoadOptions{Filter: filter.String()},
 				func(args api.OnLoadArgs) (api.OnLoadResult, error) {
-					stat, err := os.Stat(args.Path)
-					if err != nil {
-						return api.OnLoadResult{}, err
+					var inline bool
+					if limit <= 0 {
+						inline = true
+					} else {
+						stat, err := os.Stat(args.Path)
+						if err != nil {
+							return api.OnLoadResult{}, err
+						}
+						inline = stat.Size() < limit
 					}
-					if stat.Size() < limit {
+					if inline {
 						bytes, err := os.ReadFile(args.Path)
 						if err != nil {
 							return api.OnLoadResult{}, err
