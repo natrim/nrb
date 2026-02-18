@@ -34,11 +34,6 @@ func watch() error {
 	// prepare esbuild build options
 	buildEsbuildConfig(false)
 
-	// fix empty source dir
-	if staticDir == "" {
-		staticDir = "."
-	}
-
 	// start esbuild server
 	esbuildContext, err := startEsbuildServe()
 	if err != nil {

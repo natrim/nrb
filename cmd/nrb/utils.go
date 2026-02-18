@@ -16,56 +16,8 @@ import (
 	"github.com/natrim/nrb/lib/plugins"
 )
 
-var envFiles = ""
-var envPrefix = "REACT_APP_"
-var envLoaded = false
-var sourceDir = "src"
-var entryFileName = "index.tsx"
-var outputDir = "build"
-var staticDir = "public"
-var assetsDir = "assets"
-var publicUrl = "/"
-var baseDir = "."
-var port = 3000
-var host = "localhost"
-var assetNames = "media/[name]-[hash]"
-var chunkNames = "chunks/[name]-[hash]"
-var entryNames = "[name]"
-var legalComments = "eof"
-var jsx = "automatic"
-var jsxSideEffects = false
-var jsxImportSource = ""
-var jsxFactory = ""
-var jsxFragment = ""
-var sourceMap = "linked"
-var customBrowserTarget = ""
-
-var isSecured = false
-var certFile, keyFile string
-
-var buildOptions api.BuildOptions
-
-var isHelp = false
-var isVersion = false
-var useColor = true
-var generateMetafile = false
-var packagePath = "package.json"
-var tsConfigPath = "tsconfig.json"
-
-var versionData = "dev"
-var definedReplacements lib.MapFlags
-
-var cliPreloadPathsStartingWith lib.ArrayFlags
-var cliInjects lib.ArrayFlags
-var cliResolveModules lib.MapFlags
-var cliAliasPackages lib.MapFlags
-var cliLoaders lib.LoaderFlags
-var cliSplitting bool
-var cliInlineExtensions lib.ArrayFlags
-var cliInlineSize int64 // 100kb
-
-func SetupFlags(config *lib.Config) {
-	// now start settings flags
+func ParseFlags(config *lib.Config) error {
+	// start settings flags
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flag.CommandLine.Usage = func() {
 		// nothing, app will print it's stuff
@@ -117,6 +69,25 @@ func SetupFlags(config *lib.Config) {
 	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
 
 	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json")
+
+	// parse flags
+	err := flag.CommandLine.Parse(os.Args[1:])
+
+	if err == nil {
+		return err
+	}
+
+	// set color output before any output
+	lib.UseColor(useColor)
+
+	// handle too many arguments, only flags and one command allowed
+	if flag.NArg() > 1 {
+		lib.PrintError("use flags before", lib.Yellow("command"))
+		lib.PrintInfo("Usage:", lib.Blue(filepath.Base(os.Args[0])), "[flags]", lib.Yellow("command"))
+		return errors.New("too many arguments, only one command allowed")
+	}
+
+	return nil
 }
 
 func SetupWebServer() {
