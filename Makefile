@@ -29,8 +29,8 @@ format: #format project
 	go fmt ./cmd/... ./lib/...
 fmt: format #format project alias
 
-test: #do "testing"
-	@echo "🚫 no testing"
+test: #run tests
+	go test ./...
 
 tidy: #tidy up go modules
 	go mod tidy

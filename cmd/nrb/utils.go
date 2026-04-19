@@ -16,75 +16,292 @@ import (
 	"github.com/natrim/nrb/lib/plugins"
 )
 
-func ParseFlags(config *lib.Config) error {
+type CLIState struct {
+	IsHelp    bool
+	IsVersion bool
+	UseColor  bool
+	EnvFiles  string
+}
+
+func ParseFlags() (CLIState, lib.ConfigOverrides, error) {
+	state := CLIState{}
+	overrides := lib.ConfigOverrides{}
+	defaults := *config
+
 	// start settings flags
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flag.CommandLine.Usage = func() {
 		// nothing, app will print it's stuff
 	}
 
-	flag.BoolVar(&isVersion, "version", isVersion, "nrb version number")
-	flag.BoolVar(&isVersion, "v", isVersion, "alias of -version")
-	flag.BoolVar(&isHelp, "h", isHelp, "alias of -help")
-	flag.BoolVar(&isHelp, "help", isHelp, "this help")
-	flag.StringVar(&envFiles, "env", envFiles, "env files to load from (always loads .env first)")
+	isVersionFlag := isVersion
+	isHelpFlag := isHelp
+	useColorFlag := useColor
+	envFilesFlag := envFiles
 
-	flag.BoolVar(&useColor, "color", useColor, "colorize output")
+	envPrefixFlag := defaults.EnvPrefix
+	sourceDirFlag := defaults.SourceDir
+	entryFileNameFlag := defaults.EntryFileName
+	outputDirFlag := defaults.OutputDir
+	staticDirFlag := defaults.StaticDir
+	assetsDirFlag := defaults.AssetsDir
+	portFlag := defaults.Port
+	hostFlag := defaults.Host
+	publicURLFlag := defaults.PublicURL
+	customBrowserTargetFlag := defaults.Target
+	assetNamesFlag := defaults.AssetNames
+	chunkNamesFlag := defaults.ChunkNames
+	entryNamesFlag := defaults.EntryNames
+	jsxFactoryFlag := defaults.JSXFactory
+	jsxFragmentFlag := defaults.JSXFragment
+	jsxImportSourceFlag := defaults.JSXImportSource
+	jsxSideEffectsFlag := defaults.JSXSideEffects
+	jsxFlag := defaults.JSX
+	legalCommentsFlag := defaults.LegalComments
+	sourceMapFlag := defaults.SourceMap
+	splittingFlag := defaults.Splitting
+	generateMetafileFlag := defaults.Metafile
+	tsConfigPathFlag := defaults.TSConfigPath
+	var preloadFlag lib.ArrayFlags
+	var resolveFlag lib.MapFlags
+	var aliasFlag lib.MapFlags
+	var injectFlag lib.ArrayFlags
+	var inlineFlag lib.ArrayFlags
+	inlineSizeFlag := defaults.InlineSize
+	var loadersFlag lib.LoaderFlags
 
-	flag.StringVar(&envPrefix, "envPrefix", envPrefix, "env variables prefix")
-	flag.StringVar(&sourceDir, "sourceDir", sourceDir, "source directory name")
-	flag.StringVar(&entryFileName, "entryFileName", entryFileName, "entry file name in 'sourceDir'")
-	flag.StringVar(&outputDir, "outputDir", outputDir, "output dir name")
-	flag.StringVar(&staticDir, "staticDir", staticDir, "static dir name")
-	flag.StringVar(&assetsDir, "assetsDir", assetsDir, "assets dir name in output")
-	flag.IntVar(&port, "port", port, "port")
-	flag.StringVar(&host, "host", host, "host")
-	flag.StringVar(&publicUrl, "publicUrl", publicUrl, "public url")
+	flag.BoolVar(&isVersionFlag, "version", isVersionFlag, "nrb version number")
+	flag.BoolVar(&isVersionFlag, "v", isVersionFlag, "alias of -version")
+	flag.BoolVar(&isHelpFlag, "h", isHelpFlag, "alias of -help")
+	flag.BoolVar(&isHelpFlag, "help", isHelpFlag, "this help")
+	flag.StringVar(&envFilesFlag, "env", envFilesFlag, "env files to load from (always loads .env first)")
 
-	flag.StringVar(&customBrowserTarget, "target", customBrowserTarget, "custom browser target, defaults to tsconfig target if possible, else esnext")
+	flag.BoolVar(&useColorFlag, "color", useColorFlag, "colorize output")
 
-	flag.StringVar(&assetNames, "assetNames", assetNames, "asset names schema for esbuild")
-	flag.StringVar(&chunkNames, "chunkNames", chunkNames, "chunk names schema for esbuild")
-	flag.StringVar(&entryNames, "entryNames", entryNames, "entry names schema for esbuild")
+	flag.StringVar(&envPrefixFlag, "envPrefix", envPrefixFlag, "env variables prefix")
+	flag.StringVar(&sourceDirFlag, "sourceDir", sourceDirFlag, "source directory name")
+	flag.StringVar(&entryFileNameFlag, "entryFileName", entryFileNameFlag, "entry file name in 'sourceDir'")
+	flag.StringVar(&outputDirFlag, "outputDir", outputDirFlag, "output dir name")
+	flag.StringVar(&staticDirFlag, "staticDir", staticDirFlag, "static dir name")
+	flag.StringVar(&assetsDirFlag, "assetsDir", assetsDirFlag, "assets dir name in output")
+	flag.IntVar(&portFlag, "port", portFlag, "port")
+	flag.StringVar(&hostFlag, "host", hostFlag, "host")
+	flag.StringVar(&publicURLFlag, "publicUrl", publicURLFlag, "public url")
 
-	flag.StringVar(&jsxFactory, "jsxFactory", jsxFactory, "What to use for JSX instead of \"React.createElement\"")
-	flag.StringVar(&jsxFragment, "jsxFragment", jsxFragment, "What to use for JSX instead of \"React.Fragment\"")
-	flag.StringVar(&jsxImportSource, "jsxImportSource", jsxImportSource, "Override the package name for the automatic runtime (default \"react\")")
-	flag.BoolVar(&jsxSideEffects, "jsxSideEffects", jsxSideEffects, "Do not remove unused JSX expressions")
-	flag.StringVar(&jsx, "jsx", jsx, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
-	flag.StringVar(&legalComments, "legalComments", legalComments, "what to do with legal comments, available options: none|inline|eof|linked|external")
-	flag.StringVar(&sourceMap, "sourceMap", sourceMap, "what sourcemap to use, available options: none|inline|linked|external|both")
-	flag.BoolVar(&cliSplitting, "splitting", cliSplitting, "enable code splitting")
-	flag.BoolVar(&cliSplitting, "split", cliSplitting, "alias of -splitting")
+	flag.StringVar(&customBrowserTargetFlag, "target", customBrowserTargetFlag, "custom browser target, defaults to tsconfig target if possible, else esnext")
 
-	flag.Var(&cliPreloadPathsStartingWith, "preload", "paths to module=preload on build, overrides values from package.json, can have multiple flags, ie. --preload=src/index,node_modules/react")
-	flag.Var(&cliResolveModules, "resolve", "resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
-	flag.Var(&cliAliasPackages, "alias", "alias package with another 'package:aliasedpackage', overrides values from package.json, can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
-	flag.Var(&cliInjects, "inject", "allows you to automatically replace a global variable with an import from another file, overrides values from package.json, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
+	flag.StringVar(&assetNamesFlag, "assetNames", assetNamesFlag, "asset names schema for esbuild")
+	flag.StringVar(&chunkNamesFlag, "chunkNames", chunkNamesFlag, "chunk names schema for esbuild")
+	flag.StringVar(&entryNamesFlag, "entryNames", entryNamesFlag, "entry names schema for esbuild")
 
-	flag.Var(&cliInlineExtensions, "inline", "file extensions to inline as base64 dataurls, overrides values from package.json, ie. --inline=png,jpg,svg")
-	flag.Int64Var(&cliInlineSize, "inlineSize", cliInlineSize, "set max file size to inline as base64 dataurls as int in bytes, default is 0 which inlines ALL, overrides values from package.json, ie. for 10kb set --inlineSize=10000")
+	flag.StringVar(&jsxFactoryFlag, "jsxFactory", jsxFactoryFlag, "What to use for JSX instead of \"React.createElement\"")
+	flag.StringVar(&jsxFragmentFlag, "jsxFragment", jsxFragmentFlag, "What to use for JSX instead of \"React.Fragment\"")
+	flag.StringVar(&jsxImportSourceFlag, "jsxImportSource", jsxImportSourceFlag, "Override the package name for the automatic runtime (default \"react\")")
+	flag.BoolVar(&jsxSideEffectsFlag, "jsxSideEffects", jsxSideEffectsFlag, "Do not remove unused JSX expressions")
+	flag.StringVar(&jsxFlag, "jsx", jsxFlag, "tells esbuild what to do about JSX syntax, available options: automatic|transform|preserve")
+	flag.StringVar(&legalCommentsFlag, "legalComments", legalCommentsFlag, "what to do with legal comments, available options: none|inline|eof|linked|external")
+	flag.StringVar(&sourceMapFlag, "sourceMap", sourceMapFlag, "what sourcemap to use, available options: none|inline|linked|external|both")
+	flag.BoolVar(&splittingFlag, "splitting", splittingFlag, "enable code splitting")
+	flag.BoolVar(&splittingFlag, "split", splittingFlag, "alias of -splitting")
 
-	flag.BoolVar(&generateMetafile, "metafile", generateMetafile, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
-	flag.StringVar(&tsConfigPath, "tsconfig", tsConfigPath, "path to tsconfig json, relative to current work directory")
+	flag.Var(&preloadFlag, "preload", "paths to module=preload on build, overrides values from package.json, can have multiple flags, ie. --preload=src/index,node_modules/react")
+	flag.Var(&resolveFlag, "resolve", "resolve package import with 'package:path', overrides values from package.json, can have multiple flags, ie. --resolve=react:packages/super-react/index.js,redux:node_modules/redax/lib/index.js")
+	flag.Var(&aliasFlag, "alias", "alias package with another 'package:aliasedpackage', overrides values from package.json, can have multiple flags, ie. --alias=react:preact-compat,react-dom:preact-compat")
+	flag.Var(&injectFlag, "inject", "allows you to automatically replace a global variable with an import from another file, overrides values from package.json, can have multiple flags, ie. --inject=./process-shim.js,./react-shim.js")
 
-	flag.Var(&cliLoaders, "loaders", "esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json")
+	flag.Var(&inlineFlag, "inline", "file extensions to inline as base64 dataurls, overrides values from package.json, ie. --inline=png,jpg,svg")
+	flag.Int64Var(&inlineSizeFlag, "inlineSize", inlineSizeFlag, "set max file size to inline as base64 dataurls as int in bytes, default is 0 which inlines ALL, overrides values from package.json, ie. for 10kb set --inlineSize=10000")
+
+	flag.BoolVar(&generateMetafileFlag, "metafile", generateMetafileFlag, "generate metafile for bundle analysis, ie. on https://esbuild.github.io/analyze/")
+	flag.StringVar(&tsConfigPathFlag, "tsconfig", tsConfigPathFlag, "path to tsconfig json, relative to current work directory")
+
+	flag.Var(&loadersFlag, "loaders", "esbuild file loaders, overrides values from package.json, ie. --loaders=png:dataurl,.txt:copy,data:json")
 
 	// parse flags
 	err := flag.CommandLine.Parse(os.Args[1:])
 
-	if err == nil {
-		return err
+	if err != nil {
+		return state, overrides, err
+	}
+
+	state = CLIState{
+		IsHelp:    isHelpFlag,
+		IsVersion: isVersionFlag,
+		UseColor:  useColorFlag,
+		EnvFiles:  envFilesFlag,
 	}
 
 	// set color output before any output
-	lib.UseColor(useColor)
+	lib.UseColor(state.UseColor)
 
 	// handle too many arguments, only flags and one command allowed
 	if flag.NArg() > 1 {
 		lib.PrintError("use flags before", lib.Yellow("command"))
 		lib.PrintInfo("Usage:", lib.Blue(filepath.Base(os.Args[0])), "[flags]", lib.Yellow("command"))
-		return errors.New("too many arguments, only one command allowed")
+		return state, overrides, errors.New("too many arguments, only one command allowed")
+	}
+
+	passedFlags := collectPassedFlags(flag.CommandLine)
+
+	if passedFlags["envPrefix"] {
+		overrides.EnvPrefix = lib.OptionalString{Value: envPrefixFlag, Set: true}
+	}
+	if passedFlags["sourceDir"] {
+		overrides.SourceDir = lib.OptionalString{Value: sourceDirFlag, Set: true}
+	}
+	if passedFlags["entryFileName"] {
+		overrides.EntryFileName = lib.OptionalString{Value: entryFileNameFlag, Set: true}
+	}
+	if passedFlags["outputDir"] {
+		overrides.OutputDir = lib.OptionalString{Value: outputDirFlag, Set: true}
+	}
+	if passedFlags["staticDir"] {
+		overrides.StaticDir = lib.OptionalString{Value: staticDirFlag, Set: true}
+	}
+	if passedFlags["assetsDir"] {
+		overrides.AssetsDir = lib.OptionalString{Value: assetsDirFlag, Set: true}
+	}
+	if passedFlags["port"] {
+		overrides.Port = lib.OptionalInt{Value: portFlag, Set: true}
+	}
+	if passedFlags["host"] {
+		overrides.Host = lib.OptionalString{Value: hostFlag, Set: true}
+	}
+	if passedFlags["publicUrl"] {
+		overrides.PublicURL = lib.OptionalString{Value: publicURLFlag, Set: true}
+	}
+	if passedFlags["target"] {
+		overrides.Target = lib.OptionalString{Value: customBrowserTargetFlag, Set: true}
+	}
+	if passedFlags["assetNames"] {
+		overrides.AssetNames = lib.OptionalString{Value: assetNamesFlag, Set: true}
+	}
+	if passedFlags["chunkNames"] {
+		overrides.ChunkNames = lib.OptionalString{Value: chunkNamesFlag, Set: true}
+	}
+	if passedFlags["entryNames"] {
+		overrides.EntryNames = lib.OptionalString{Value: entryNamesFlag, Set: true}
+	}
+	if passedFlags["jsxFactory"] {
+		overrides.JSXFactory = lib.OptionalString{Value: jsxFactoryFlag, Set: true}
+	}
+	if passedFlags["jsxFragment"] {
+		overrides.JSXFragment = lib.OptionalString{Value: jsxFragmentFlag, Set: true}
+	}
+	if passedFlags["jsxImportSource"] {
+		overrides.JSXImportSource = lib.OptionalString{Value: jsxImportSourceFlag, Set: true}
+	}
+	if passedFlags["jsxSideEffects"] {
+		overrides.JSXSideEffects = lib.OptionalBool{Value: jsxSideEffectsFlag, Set: true}
+	}
+	if passedFlags["jsx"] {
+		overrides.JSX = lib.OptionalString{Value: jsxFlag, Set: true}
+	}
+	if passedFlags["legalComments"] {
+		overrides.LegalComments = lib.OptionalString{Value: legalCommentsFlag, Set: true}
+	}
+	if passedFlags["sourceMap"] {
+		overrides.SourceMap = lib.OptionalString{Value: sourceMapFlag, Set: true}
+	}
+	if passedFlags["metafile"] {
+		overrides.Metafile = lib.OptionalBool{Value: generateMetafileFlag, Set: true}
+	}
+	if passedFlags["tsconfig"] {
+		overrides.TSConfigPath = lib.OptionalString{Value: tsConfigPathFlag, Set: true}
+	}
+	if passedFlags["splitting"] || passedFlags["split"] {
+		overrides.Splitting = lib.OptionalBool{Value: splittingFlag, Set: true}
+	}
+	if passedFlags["alias"] {
+		overrides.AliasPackages = aliasFlag
+	}
+	if passedFlags["resolve"] {
+		overrides.ResolveModules = resolveFlag
+	}
+	if passedFlags["preload"] {
+		overrides.PreloadPathsStartingWith = preloadFlag
+	}
+	if passedFlags["inject"] {
+		overrides.Injects = injectFlag
+	}
+	if passedFlags["inline"] {
+		overrides.InlineExtensions = inlineFlag
+	}
+	if passedFlags["inlineSize"] {
+		overrides.InlineSize = lib.OptionalInt64{Value: inlineSizeFlag, Set: true}
+	}
+	if passedFlags["loaders"] {
+		overrides.Loaders = loadersFlag
+	}
+
+	return state, overrides, nil
+}
+
+func collectPassedFlags(flagSet *flag.FlagSet) map[string]bool {
+	passedFlags := make(map[string]bool)
+	flagSet.Visit(func(f *flag.Flag) {
+		passedFlags[f.Name] = true
+	})
+	return passedFlags
+}
+
+func buildRuntimeConfig(requirePackageJSON bool) (lib.Config, error) {
+	mergedConfig := lib.DefaultConfig()
+	packageFilePath := filepath.Join(baseDir, packagePath)
+
+	if !lib.FileExists(packageFilePath) {
+		if requirePackageJSON {
+			return lib.Config{}, errors.New("no " + packageFilePath + " found")
+		}
+	} else {
+		packageJson, err := lib.ParsePackageJson(packageFilePath)
+		if err != nil {
+			return lib.Config{}, err
+		}
+		configPatch, err := lib.ParseJsonConfig(packageJson)
+		if err != nil {
+			return lib.Config{}, err
+		}
+		mergedConfig = lib.MergeConfig(mergedConfig, configPatch)
+	}
+
+	lib.ApplyOverrides(&mergedConfig, currentConfigOverrides)
+
+	return mergedConfig, nil
+}
+
+func normalizeRuntimeConfig(cfg lib.Config) lib.Config {
+	if cfg.SourceDir != "" {
+		cfg.SourceDir = filepath.Join(baseDir, cfg.SourceDir)
+	}
+	if cfg.OutputDir != "" {
+		cfg.OutputDir = filepath.Join(baseDir, cfg.OutputDir)
+	}
+	if cfg.StaticDir != "" {
+		cfg.StaticDir = filepath.Join(baseDir, cfg.StaticDir)
+	}
+
+	if cfg.SourceDir == "" {
+		cfg.SourceDir = "."
+	}
+	if cfg.StaticDir == "" {
+		cfg.StaticDir = "."
+	}
+
+	return cfg
+}
+
+func refreshRuntimeConfig(requirePackageJSON bool) error {
+	cfg, err := buildRuntimeConfig(requirePackageJSON)
+	if err != nil {
+		return err
+	}
+
+	cfg = normalizeRuntimeConfig(cfg)
+	config = &cfg
+
+	if config.OutputDir == "" {
+		return errors.New("failed to find build directory")
 	}
 
 	return nil
@@ -118,22 +335,31 @@ func SetupWebServer() {
 	}
 }
 
-func parseEnvVars(isBuildMode bool) (string, string, error) {
-	envFiles := strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
+func resolveEnvFiles() string {
+	envPaths := strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
 	if lib.FileExists(filepath.Join(baseDir, ".env")) {
-		if envFiles != "" {
-			envFiles = ".env," + envFiles
-		} else {
-			envFiles = ".env"
+		if envPaths != "" {
+			return ".env," + envPaths
 		}
+		return ".env"
 	}
-	if envFiles != "" {
-		err := godotenv.Overload(strings.Split(envFiles, ",")...)
-		if err != nil {
-			return "", "", errors.Join(errors.New("cannot load .env file/s"), err)
-		}
+	return envPaths
+}
+
+func loadEnvFiles() (string, error) {
+	envPaths := resolveEnvFiles()
+	if envPaths == "" {
+		return "", nil
 	}
 
+	if err := godotenv.Overload(strings.Split(envPaths, ",")...); err != nil {
+		return "", errors.Join(errors.New("cannot load .env file/s"), err)
+	}
+
+	return envPaths, nil
+}
+
+func buildDefinedReplacements(cfg lib.Config, isBuildMode bool) string {
 	var MODE = os.Getenv("NODE_ENV")
 	if MODE == "" && !isBuildMode {
 		MODE = "development"
@@ -157,23 +383,23 @@ func parseEnvVars(isBuildMode bool) (string, string, error) {
 
 		// cra fallback
 		"process.env.FAST_REFRESH": "false",
-		"process.env.PUBLIC_URL":   fmt.Sprintf("\"%s\"", strings.TrimSuffix(publicUrl, "/")),
+		"process.env.PUBLIC_URL":   fmt.Sprintf("\"%s\"", strings.TrimSuffix(cfg.PublicURL, "/")),
 
 		// import.meta stuff
 		"import.meta.env.MODE":     fmt.Sprintf("\"%s\"", MODE),
-		"import.meta.env.BASE_URL": fmt.Sprintf("\"%s\"", strings.TrimSuffix(publicUrl, "/")),
+		"import.meta.env.BASE_URL": fmt.Sprintf("\"%s\"", strings.TrimSuffix(cfg.PublicURL, "/")),
 		"import.meta.env.PROD":     isProduction,
 		"import.meta.env.DEV":      isDevelopment,
 
 		// metaData version
-		"process.env." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
-		"import.meta." + envPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
+		"process.env." + cfg.EnvPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
+		"import.meta." + cfg.EnvPrefix + "VERSION": fmt.Sprintf("\"%v\"", "\"dev\""),
 	}
 
 	envAll := os.Environ()
 	for _, v := range envAll {
 		env := strings.SplitN(v, "=", 2)
-		if strings.HasPrefix(env[0], envPrefix) {
+		if strings.HasPrefix(env[0], cfg.EnvPrefix) {
 			define[fmt.Sprintf("process.env.%s", env[0])] = fmt.Sprintf("\"%s\"", env[1])
 			define[fmt.Sprintf("import.meta.%s", env[0])] = fmt.Sprintf("\"%s\"", env[1])
 		}
@@ -185,15 +411,19 @@ func parseEnvVars(isBuildMode bool) (string, string, error) {
 
 	definedReplacements = define
 
-	return MODE, envFiles, nil
+	return MODE
 }
 
 func buildEsbuildConfig(isBuildMode bool) {
+	if err := refreshRuntimeConfig(true); err != nil {
+		lib.PrintError(err)
+		os.Exit(1)
+	}
+
 	if !envLoaded {
 		envLoaded = true
 
-		mode, env, err := parseEnvVars(isBuildMode)
-
+		env, err := loadEnvFiles()
 		if err != nil {
 			lib.PrintError(err)
 			os.Exit(1)
@@ -202,52 +432,18 @@ func buildEsbuildConfig(isBuildMode bool) {
 		if env != "" {
 			lib.PrintInfof("env files: %s\n", env)
 		}
-		if mode != "" {
-			lib.PrintInfof("node mode: \"%s\"\n", mode)
-		}
 	}
 
-	packageJson, err := lib.ParsePackageJson(filepath.Join(baseDir, packagePath))
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
-	}
-	config, err = lib.ParseJsonConfig(packageJson)
-	if err != nil {
-		lib.PrintError(err)
-		os.Exit(1)
-	}
-
-	// override json values by values from cli
-	if lib.IsFlagPassed("preload") {
-		config.PreloadPathsStartingWith = cliPreloadPathsStartingWith
-	}
-	if lib.IsFlagPassed("resolve") {
-		config.ResolveModules = cliResolveModules
-	}
-	if lib.IsFlagPassed("alias") {
-		config.AliasPackages = cliAliasPackages
-	}
-	if lib.IsFlagPassed("inject") {
-		config.Injects = cliInjects
-	}
-	if lib.IsFlagPassed("loaders") {
-		config.Loaders = cliLoaders
-	}
-	if lib.IsFlagPassed("inline") {
-		config.InlineExtensions = cliInlineExtensions
-	}
-	if lib.IsFlagPassed("inlineSize") {
-		config.InlineSize = cliInlineSize
-	}
-	if lib.IsFlagPassed("splitting") || lib.IsFlagPassed("split") {
-		config.Splitting = cliSplitting
+	mode := buildDefinedReplacements(*config, isBuildMode)
+	if mode != "" {
+		lib.PrintInfof("node mode: \"%s\"\n", mode)
 	}
 
 	browserTarget := api.DefaultTarget
+	target := config.Target
 
-	if customBrowserTarget == "" {
-		tspath := filepath.Join(baseDir, tsConfigPath)
+	if target == "" {
+		tspath := filepath.Join(baseDir, config.TSConfigPath)
 		if lib.FileExists(tspath) {
 			jsonFile, err := os.ReadFile(tspath)
 			if err != nil {
@@ -261,13 +457,14 @@ func buildEsbuildConfig(isBuildMode bool) {
 				}
 				jsonFile = nil
 
-				customBrowserTarget = tsconfigJson["compilerOptions"].(map[string]any)["target"].(string)
+				target = tsconfigJson["compilerOptions"].(map[string]any)["target"].(string)
 			}
 		}
 	}
 
-	if customBrowserTarget != "" {
-		browserTarget, err = lib.ParseBrowserTarget(customBrowserTarget)
+	if target != "" {
+		var err error
+		browserTarget, err = lib.ParseBrowserTarget(target)
 		if err != nil {
 			lib.Printe(err)
 			os.Exit(1)
@@ -280,25 +477,25 @@ func buildEsbuildConfig(isBuildMode bool) {
 	}
 
 	if versionData != "" {
-		definedReplacements["process.env."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
-		definedReplacements["import.meta."+envPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
+		definedReplacements["process.env."+config.EnvPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
+		definedReplacements["import.meta."+config.EnvPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
 	}
 
 	buildOptions = api.BuildOptions{
 		Target:      browserTarget,
-		EntryPoints: []string{filepath.Join(sourceDir, entryFileName)},
-		Outdir:      filepath.Join(outputDir, assetsDir),
-		PublicPath:  fmt.Sprintf("/%s/", assetsDir), // change in index.html too, needs to be same as above
-		AssetNames:  assetNames,
-		ChunkNames:  chunkNames,
-		EntryNames:  entryNames,
+		EntryPoints: []string{filepath.Join(config.SourceDir, config.EntryFileName)},
+		Outdir:      filepath.Join(config.OutputDir, config.AssetsDir),
+		PublicPath:  fmt.Sprintf("/%s/", config.AssetsDir), // change in index.html too, needs to be same as above
+		AssetNames:  config.AssetNames,
+		ChunkNames:  config.ChunkNames,
+		EntryNames:  config.EntryNames,
 		Bundle:      true,
 		Format:      api.FormatESModule,
 		Splitting:   config.Splitting,
 		TreeShaking: api.TreeShakingDefault, // default shakes if bundle true, or format iife
 		// moved lower to switch via flag
 		// LegalComments:     api.LegalCommentsLinked,
-		Metafile:          generateMetafile,
+		Metafile:          config.Metafile,
 		MinifyIdentifiers: isBuildMode,
 		MinifySyntax:      isBuildMode,
 		MinifyWhitespace:  isBuildMode,
@@ -312,7 +509,7 @@ func buildEsbuildConfig(isBuildMode bool) {
 		// moved lower to flag
 		//Sourcemap: api.SourceMapLinked,
 
-		Tsconfig: filepath.Join(baseDir, tsConfigPath),
+		Tsconfig: filepath.Join(baseDir, config.TSConfigPath),
 
 		Plugins: []api.Plugin{
 			plugins.AliasPlugin(config.ResolveModules),
@@ -322,13 +519,13 @@ func buildEsbuildConfig(isBuildMode bool) {
 		// react stuff
 		// mode is set under this-. JSX: api.JSXAutomatic,
 		JSXDev:          !isBuildMode,
-		JSXFactory:      jsxFactory,
-		JSXFragment:     jsxFragment,
-		JSXImportSource: jsxImportSource,
-		JSXSideEffects:  jsxSideEffects,
+		JSXFactory:      config.JSXFactory,
+		JSXFragment:     config.JSXFragment,
+		JSXImportSource: config.JSXImportSource,
+		JSXSideEffects:  config.JSXSideEffects,
 	}
 
-	switch jsx {
+	switch config.JSX {
 	case "automatic":
 		buildOptions.JSX = api.JSXAutomatic
 	case "transform":
@@ -340,7 +537,7 @@ func buildEsbuildConfig(isBuildMode bool) {
 		os.Exit(1)
 	}
 
-	switch legalComments {
+	switch config.LegalComments {
 	case "default":
 		buildOptions.LegalComments = api.LegalCommentsDefault
 	case "none":
@@ -358,7 +555,7 @@ func buildEsbuildConfig(isBuildMode bool) {
 		os.Exit(1)
 	}
 
-	switch sourceMap {
+	switch config.SourceMap {
 	case "none":
 		buildOptions.Sourcemap = api.SourceMapNone
 	case "inline":

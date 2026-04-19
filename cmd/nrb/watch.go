@@ -66,10 +66,10 @@ func watch() error {
 	watchingDirsInfo := strings.Builder{}
 
 	// sauce
-	watchingDirsInfo.WriteString(sourceDir)
+	watchingDirsInfo.WriteString(config.SourceDir)
 
 	// some extras ( just tsconfig and package json's for now )
-	extraWatch := []string{filepath.Join(baseDir, tsConfigPath), filepath.Join(baseDir, packagePath)}
+	extraWatch := []string{filepath.Join(baseDir, config.TSConfigPath), filepath.Join(baseDir, packagePath)}
 	for _, vpath := range extraWatch {
 		if lib.FileExists(vpath) {
 			if err := watcher.Add(vpath); err != nil {
@@ -85,7 +85,7 @@ func watch() error {
 
 	lib.PrintInfo("watching:", watchingDirsInfo.String())
 
-	absWalkPath := lib.RealQuickPath(sourceDir)
+	absWalkPath := lib.RealQuickPath(config.SourceDir)
 	if err := filepath.WalkDir(absWalkPath, watchDir(watcher)); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func watch() error {
 					name := strings.TrimLeft(strings.TrimPrefix(event.Name, absWalkPath), "/")
 
 					if !slices.Contains(changedNames, name) {
-						lib.PrintItemf("Change in %s/%s\n", sourceDir, name)
+						lib.PrintItemf("Change in %s/%s\n", config.SourceDir, name)
 						changedNames = append(changedNames, name)
 					}
 				}
@@ -184,14 +184,14 @@ func watch() error {
 			protocol = "http://"
 		}
 
-		indexExists := lib.FileExists(filepath.Join(staticDir, "index.html"))
+		indexExists := lib.FileExists(filepath.Join(config.StaticDir, "index.html"))
 		baseIndexExists := false
 		baseIndexFile := filepath.Join(baseDir, "index.html")
 		if !indexExists {
 			baseIndexExists = lib.FileExists(baseIndexFile)
 		}
 
-		fileServer := lib.PipedFileServerWithMiddleware(staticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
+		fileServer := lib.PipedFileServerWithMiddleware(config.StaticDir, pipeRequestToEsbuild, func(next http.HandlerFunc) http.HandlerFunc {
 			return func(writer http.ResponseWriter, request *http.Request) {
 				//pipe index directly to esbuild to skip loading of index by staticServer
 				if request.URL.Path == "/index.html" || filepath.Ext(request.URL.Path) == "" {
@@ -205,7 +205,7 @@ func watch() error {
 							return
 						}
 
-						index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
+						index, _ := lib.InjectVarsIntoIndex(readBody, config.EntryFileName, config.AssetsDir, config.PublicURL)
 
 						writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 						writer.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
@@ -225,16 +225,16 @@ func watch() error {
 		broker = lib.NewStreamServer()
 		http.Handle("/esbuild", broker)
 
-		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, port))
+		socket, err := net.Listen("tcp", fmt.Sprintf("%s:%d", config.Host, config.Port))
 		if err != nil {
 			done <- err
 			return
 		}
 
 		// get real port in case user uses 0 for random port
-		port = socket.Addr().(*net.TCPAddr).Port
+		config.Port = socket.Addr().(*net.TCPAddr).Port
 
-		lib.PrintInfof("Listening on: %s%s:%d\n", protocol, host, port)
+		lib.PrintInfof("Listening on: %s%s:%d\n", protocol, config.Host, config.Port)
 
 		if isSecured {
 			err = http.ServeTLS(socket, nil, certFile, keyFile)
@@ -320,7 +320,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 	// get the file from esbuild
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // cancel after minute
 	defer cancel()
-	req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s:%d/%s", host, proxyPort, uri), nil)
+	req, _ := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf("http://%s:%d/%s", config.Host, proxyPort, uri), nil)
 	req.Header.Set("Host", r.Header.Get("Host"))
 	setXForwardedFrom(req, r)
 	client := &http.Client{}
@@ -365,7 +365,7 @@ func pipeRequestToEsbuild(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		index, _ := lib.InjectVarsIntoIndex(readBody, entryFileName, assetsDir, publicUrl)
+		index, _ := lib.InjectVarsIntoIndex(readBody, config.EntryFileName, config.AssetsDir, config.PublicURL)
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(index)))
 		w.WriteHeader(resp.StatusCode)
 		_, _ = w.Write(index)
@@ -433,7 +433,7 @@ func startEsbuildServe() (api.BuildContext, error) {
 	}
 
 	// set outdir
-	buildOptions.Outdir = filepath.Join(staticDir, assetsDir)
+	buildOptions.Outdir = filepath.Join(config.StaticDir, config.AssetsDir)
 
 	// dont write files on watch
 	buildOptions.Write = false
@@ -446,9 +446,9 @@ func startEsbuildServe() (api.BuildContext, error) {
 
 	// start esbuild server
 	server, err := ctx.Serve(api.ServeOptions{
-		Servedir: staticDir,
+		Servedir: config.StaticDir,
 		Port:     int(proxyPort),
-		Host:     host,
+		Host:     config.Host,
 	})
 
 	if err != nil {

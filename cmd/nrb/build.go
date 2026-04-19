@@ -14,7 +14,7 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
-func build(preloadPathsStartingWith lib.ArrayFlags) error {
+func build() error {
 	start := time.Now()
 
 	// prepare esbuild build options
@@ -24,7 +24,7 @@ func build(preloadPathsStartingWith lib.ArrayFlags) error {
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// remove output directory
-	err := os.RemoveAll(outputDir)
+	err := os.RemoveAll(config.OutputDir)
 	if err != nil {
 		return errors.Join(errors.New("failed to clean build directory"), err)
 	}
@@ -33,8 +33,8 @@ func build(preloadPathsStartingWith lib.ArrayFlags) error {
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
 	// copy static directory to build directory
-	if staticDir != "" {
-		err = lib.CopyDir(outputDir, staticDir)
+	if config.StaticDir != "" {
+		err = lib.CopyDir(config.OutputDir, config.StaticDir)
 		if err != nil {
 			return errors.Join(errors.New("failed to copy static directory"), err)
 		}
@@ -42,7 +42,7 @@ func build(preloadPathsStartingWith lib.ArrayFlags) error {
 		lib.PrintOk("Copied static files to output dir")
 		lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 	} else {
-		os.MkdirAll(outputDir, 0755)
+		os.MkdirAll(config.OutputDir, 0755)
 	}
 
 	lib.PrintItem("Building..")
@@ -71,8 +71,8 @@ func build(preloadPathsStartingWith lib.ArrayFlags) error {
 	lib.PrintOk("Esbuild done")
 	lib.PrintInfof("Time: %dms\n", time.Since(start).Milliseconds())
 
-	if generateMetafile {
-		if err = os.WriteFile(filepath.Join(outputDir, "build-meta.json"), []byte(result.Metafile), 0644); err != nil {
+	if config.Metafile {
+		if err = os.WriteFile(filepath.Join(config.OutputDir, "build-meta.json"), []byte(result.Metafile), 0644); err != nil {
 			lib.PrintError("failed to save metafile", err)
 		} else {
 			lib.PrintOk("Metafile saved to 'build-meta.json'")
@@ -81,13 +81,13 @@ func build(preloadPathsStartingWith lib.ArrayFlags) error {
 		}
 	}
 
-	err = os.WriteFile(filepath.Join(outputDir, "version.json"), fmt.Appendf(nil, "{\"hash\":\"%s\",\"time\":%d}", versionData, start.Unix()), 0644)
+	err = os.WriteFile(filepath.Join(config.OutputDir, "version.json"), fmt.Appendf(nil, "{\"hash\":\"%s\",\"time\":%d}", versionData, start.Unix()), 0644)
 	if err != nil {
 		lib.PrintError("failed to save version.json", err)
 	}
 
 	lib.PrintItem("Building index.html file...")
-	err = makeIndex(preloadPathsStartingWith, &result)
+	err = makeIndex(config.PreloadPathsStartingWith, &result)
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func makeIndex(preloadPathsStartingWith lib.ArrayFlags, result *api.BuildResult)
 		return errors.Join(errors.New("failed to parse build metadata"), err)
 	}
 
-	indexFile, err := os.ReadFile(filepath.Join(outputDir, "index.html"))
+	indexFile, err := os.ReadFile(filepath.Join(config.OutputDir, "index.html"))
 	if err != nil {
 		indexFile, err = os.ReadFile(filepath.Join(baseDir, "index.html"))
 
@@ -116,7 +116,7 @@ func makeIndex(preloadPathsStartingWith lib.ArrayFlags, result *api.BuildResult)
 	}
 
 	//inject main js/css if not already in index.html
-	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, entryFileName, assetsDir, publicUrl)
+	indexFile, saveIndexFile := lib.InjectVarsIntoIndex(indexFile, config.EntryFileName, config.AssetsDir, config.PublicURL)
 
 	// find chunks to preload
 	if len(preloadPathsStartingWith) > 0 {
@@ -135,13 +135,13 @@ func makeIndex(preloadPathsStartingWith lib.ArrayFlags, result *api.BuildResult)
 		}
 
 		if len(chunksToPreload) > 0 {
-			publicUrl := strings.TrimSuffix(publicUrl, "/")
-			indexFileName := strings.TrimSuffix(filepath.Base(entryFileName), filepath.Ext(entryFileName))
-			findP := regexp.MustCompile(fmt.Sprintf("<link rel=([\"']?)modulepreload([\"']?) href=([\"']?)%s/%s/%s\\.js([\"']?)( ?/?)>(\n?)", publicUrl, assetsDir, indexFileName))
+			publicURL := strings.TrimSuffix(config.PublicURL, "/")
+			indexFileName := strings.TrimSuffix(filepath.Base(config.EntryFileName), filepath.Ext(config.EntryFileName))
+			findP := regexp.MustCompile(fmt.Sprintf("<link rel=([\"']?)modulepreload([\"']?) href=([\"']?)%s/%s/%s\\.js([\"']?)( ?/?)>(\n?)", publicURL, config.AssetsDir, indexFileName))
 			saveIndexFile = true
 			replace := strings.Builder{}
 			for chunk := range chunksToPreload {
-				fmt.Fprintf(&replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicUrl, strings.ReplaceAll(chunk, filepath.Join(outputDir, assetsDir), assetsDir))
+				fmt.Fprintf(&replace, "<link rel=${1}modulepreload${2} href=${3}%s/%s${4}${5}>${6}", publicURL, strings.ReplaceAll(chunk, filepath.Join(config.OutputDir, config.AssetsDir), config.AssetsDir))
 			}
 			// replace modulepreload index.js with modulepreload index.js and others
 			indexFile = findP.ReplaceAll(indexFile, []byte(replace.String()))
@@ -149,7 +149,7 @@ func makeIndex(preloadPathsStartingWith lib.ArrayFlags, result *api.BuildResult)
 	}
 
 	if saveIndexFile {
-		err = os.WriteFile(filepath.Join(outputDir, "index.html"), indexFile, 0644)
+		err = os.WriteFile(filepath.Join(config.OutputDir, "index.html"), indexFile, 0644)
 		if err != nil {
 			return errors.Join(errors.New("failed to write built index.html"), err)
 		}
