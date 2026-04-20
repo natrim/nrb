@@ -1,6 +1,10 @@
 package lib
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/evanw/esbuild/pkg/api"
+)
 
 func TestDefaultConfigIncludesCurrentRuntimeDefaults(t *testing.T) {
 	cfg := DefaultConfig()
@@ -41,14 +45,14 @@ func TestDefaultConfigIncludesCurrentRuntimeDefaults(t *testing.T) {
 	if cfg.EntryNames != "[name]" {
 		t.Fatalf("EntryNames = %q, want %q", cfg.EntryNames, "[name]")
 	}
-	if cfg.LegalComments != "eof" {
-		t.Fatalf("LegalComments = %q, want %q", cfg.LegalComments, "eof")
+	if cfg.LegalComments != api.LegalCommentsEndOfFile {
+		t.Fatalf("LegalComments = %v, want %v", cfg.LegalComments, api.LegalCommentsEndOfFile)
 	}
-	if cfg.JSX != "automatic" {
-		t.Fatalf("JSX = %q, want %q", cfg.JSX, "automatic")
+	if cfg.JSX != api.JSXAutomatic {
+		t.Fatalf("JSX = %v, want %v", cfg.JSX, api.JSXAutomatic)
 	}
-	if cfg.SourceMap != "linked" {
-		t.Fatalf("SourceMap = %q, want %q", cfg.SourceMap, "linked")
+	if cfg.SourceMap != api.SourceMapLinked {
+		t.Fatalf("SourceMap = %v, want %v", cfg.SourceMap, api.SourceMapLinked)
 	}
 	if cfg.TSConfigPath != "tsconfig.json" {
 		t.Fatalf("TSConfigPath = %q, want %q", cfg.TSConfigPath, "tsconfig.json")
@@ -122,6 +126,15 @@ func TestParseJsonConfigReadsScalarAndBooleanKeys(t *testing.T) {
 	if !patch.JSXSideEffects.Set || !patch.JSXSideEffects.Value {
 		t.Fatalf("expected JSXSideEffects package value to be preserved: %#v", patch.JSXSideEffects)
 	}
+	if !patch.JSX.Set || patch.JSX.Value != api.JSXPreserve {
+		t.Fatalf("unexpected JSX patch: %#v", patch.JSX)
+	}
+	if !patch.LegalComments.Set || patch.LegalComments.Value != api.LegalCommentsLinked {
+		t.Fatalf("unexpected LegalComments patch: %#v", patch.LegalComments)
+	}
+	if !patch.SourceMap.Set || patch.SourceMap.Value != api.SourceMapExternal {
+		t.Fatalf("unexpected SourceMap patch: %#v", patch.SourceMap)
+	}
 	if !patch.Metafile.Set || !patch.Metafile.Value {
 		t.Fatalf("expected Metafile package value to be preserved: %#v", patch.Metafile)
 	}
@@ -184,6 +197,40 @@ func TestParseJsonConfigPreservesExplicitZeroFalseAndEmptyValues(t *testing.T) {
 	}
 	if !patch.InlineSize.Set || patch.InlineSize.Value != 0 {
 		t.Fatalf("InlineSize patch = %#v, want explicit zero", patch.InlineSize)
+	}
+}
+
+func TestParseJsonConfigRejectsInvalidEnumValues(t *testing.T) {
+	tests := []struct {
+		name string
+		pkg  PackageJson
+	}{
+		{
+			name: "jsx must be valid option",
+			pkg: PackageJson{
+				"nrb": map[string]any{"jsx": "invalid"},
+			},
+		},
+		{
+			name: "legalComments must be valid option",
+			pkg: PackageJson{
+				"nrb": map[string]any{"legalComments": "bad"},
+			},
+		},
+		{
+			name: "sourceMap must be valid option",
+			pkg: PackageJson{
+				"nrb": map[string]any{"sourceMap": "bad"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := ParseJsonConfig(tt.pkg); err == nil {
+				t.Fatal("expected ParseJsonConfig to fail")
+			}
+		})
 	}
 }
 

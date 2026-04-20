@@ -34,10 +34,10 @@ func ParseFlags() (CLIState, lib.ConfigOverrides, error) {
 		// nothing, app will print it's stuff
 	}
 
-	isVersionFlag := isVersion
-	isHelpFlag := isHelp
-	useColorFlag := useColor
-	envFilesFlag := envFiles
+	isVersionFlag := false
+	isHelpFlag := false
+	useColorFlag := true
+	envFilesFlag := ""
 
 	envPrefixFlag := defaults.EnvPrefix
 	sourceDirFlag := defaults.SourceDir
@@ -56,9 +56,9 @@ func ParseFlags() (CLIState, lib.ConfigOverrides, error) {
 	jsxFragmentFlag := defaults.JSXFragment
 	jsxImportSourceFlag := defaults.JSXImportSource
 	jsxSideEffectsFlag := defaults.JSXSideEffects
-	jsxFlag := defaults.JSX
-	legalCommentsFlag := defaults.LegalComments
-	sourceMapFlag := defaults.SourceMap
+	jsxFlag := lib.JSXString(defaults.JSX)
+	legalCommentsFlag := lib.LegalCommentsString(defaults.LegalComments)
+	sourceMapFlag := lib.SourceMapString(defaults.SourceMap)
 	splittingFlag := defaults.Splitting
 	generateMetafileFlag := defaults.Metafile
 	tsConfigPathFlag := defaults.TSConfigPath
@@ -195,13 +195,28 @@ func ParseFlags() (CLIState, lib.ConfigOverrides, error) {
 		overrides.JSXSideEffects = lib.OptionalBool{Value: jsxSideEffectsFlag, Set: true}
 	}
 	if passedFlags["jsx"] {
-		overrides.JSX = lib.OptionalString{Value: jsxFlag, Set: true}
+		jsxMode, err := lib.ParseJSX(jsxFlag)
+		if err != nil {
+			lib.Printe(err)
+			os.Exit(1)
+		}
+		overrides.JSX = lib.OptionalEnum[api.JSX]{Value: jsxMode, Set: true}
 	}
 	if passedFlags["legalComments"] {
-		overrides.LegalComments = lib.OptionalString{Value: legalCommentsFlag, Set: true}
+		legalCommentsMode, err := lib.ParseLegalComments(legalCommentsFlag)
+		if err != nil {
+			lib.Printe(err)
+			os.Exit(1)
+		}
+		overrides.LegalComments = lib.OptionalEnum[api.LegalComments]{Value: legalCommentsMode, Set: true}
 	}
 	if passedFlags["sourceMap"] {
-		overrides.SourceMap = lib.OptionalString{Value: sourceMapFlag, Set: true}
+		sourceMapMode, err := lib.ParseSourceMap(sourceMapFlag)
+		if err != nil {
+			lib.Printe(err)
+			os.Exit(1)
+		}
+		overrides.SourceMap = lib.OptionalEnum[api.SourceMap]{Value: sourceMapMode, Set: true}
 	}
 	if passedFlags["metafile"] {
 		overrides.Metafile = lib.OptionalBool{Value: generateMetafileFlag, Set: true}
@@ -265,7 +280,7 @@ func buildRuntimeConfig(requirePackageJSON bool) (lib.Config, error) {
 		mergedConfig = lib.MergeConfig(mergedConfig, configPatch)
 	}
 
-	lib.ApplyOverrides(&mergedConfig, currentConfigOverrides)
+	lib.ApplyOverrides(&mergedConfig, configOverrides)
 
 	return mergedConfig, nil
 }
@@ -336,7 +351,7 @@ func SetupWebServer() {
 }
 
 func resolveEnvFiles() string {
-	envPaths := strings.Join(strings.Fields(strings.Trim(envFiles, ",")), "")
+	envPaths := strings.Join(strings.Fields(strings.Trim(cliState.EnvFiles, ",")), "")
 	if lib.FileExists(filepath.Join(baseDir, ".env")) {
 		if envPaths != "" {
 			return ".env," + envPaths
@@ -414,6 +429,8 @@ func buildDefinedReplacements(cfg lib.Config, isBuildMode bool) string {
 	return MODE
 }
 
+var envLoaded bool
+
 func buildEsbuildConfig(isBuildMode bool) {
 	if err := refreshRuntimeConfig(true); err != nil {
 		lib.PrintError(err)
@@ -481,20 +498,25 @@ func buildEsbuildConfig(isBuildMode bool) {
 		definedReplacements["import.meta."+config.EnvPrefix+"VERSION"] = fmt.Sprintf("\"%v\"", versionData)
 	}
 
+	apiColor := api.ColorIfTerminal
+	if !cliState.UseColor {
+		apiColor = api.ColorNever
+	}
+
 	buildOptions = api.BuildOptions{
-		Target:      browserTarget,
-		EntryPoints: []string{filepath.Join(config.SourceDir, config.EntryFileName)},
-		Outdir:      filepath.Join(config.OutputDir, config.AssetsDir),
-		PublicPath:  fmt.Sprintf("/%s/", config.AssetsDir), // change in index.html too, needs to be same as above
-		AssetNames:  config.AssetNames,
-		ChunkNames:  config.ChunkNames,
-		EntryNames:  config.EntryNames,
-		Bundle:      true,
-		Format:      api.FormatESModule,
-		Splitting:   config.Splitting,
-		TreeShaking: api.TreeShakingDefault, // default shakes if bundle true, or format iife
-		// moved lower to switch via flag
-		// LegalComments:     api.LegalCommentsLinked,
+		Color:             apiColor,
+		Target:            browserTarget,
+		EntryPoints:       []string{filepath.Join(config.SourceDir, config.EntryFileName)},
+		Outdir:            filepath.Join(config.OutputDir, config.AssetsDir),
+		PublicPath:        fmt.Sprintf("/%s/", config.AssetsDir), // change in index.html too, needs to be same as above
+		AssetNames:        config.AssetNames,
+		ChunkNames:        config.ChunkNames,
+		EntryNames:        config.EntryNames,
+		Bundle:            true,
+		Format:            api.FormatESModule,
+		Splitting:         config.Splitting,
+		TreeShaking:       api.TreeShakingDefault, // default shakes if bundle true, or format iife
+		LegalComments:     config.LegalComments,
 		Metafile:          config.Metafile,
 		MinifyIdentifiers: isBuildMode,
 		MinifySyntax:      isBuildMode,
@@ -502,12 +524,10 @@ func buildEsbuildConfig(isBuildMode bool) {
 		Write:             true,
 		Alias:             config.AliasPackages,
 
-		Define: definedReplacements,
-		Inject: config.Injects,
-		Loader: config.Loaders,
-
-		// moved lower to flag
-		//Sourcemap: api.SourceMapLinked,
+		Define:    definedReplacements,
+		Inject:    config.Injects,
+		Loader:    config.Loaders,
+		Sourcemap: config.SourceMap,
 
 		Tsconfig: filepath.Join(baseDir, config.TSConfigPath),
 
@@ -517,63 +537,11 @@ func buildEsbuildConfig(isBuildMode bool) {
 		},
 
 		// react stuff
-		// mode is set under this-. JSX: api.JSXAutomatic,
+		JSX:             config.JSX,
 		JSXDev:          !isBuildMode,
 		JSXFactory:      config.JSXFactory,
 		JSXFragment:     config.JSXFragment,
 		JSXImportSource: config.JSXImportSource,
 		JSXSideEffects:  config.JSXSideEffects,
-	}
-
-	switch config.JSX {
-	case "automatic":
-		buildOptions.JSX = api.JSXAutomatic
-	case "transform":
-		buildOptions.JSX = api.JSXTransform
-	case "preserve":
-		buildOptions.JSX = api.JSXPreserve
-	default:
-		lib.Printe("wrong \"--jsx\" mode! (allowed: automatic|transform|preserve)")
-		os.Exit(1)
-	}
-
-	switch config.LegalComments {
-	case "default":
-		buildOptions.LegalComments = api.LegalCommentsDefault
-	case "none":
-		buildOptions.LegalComments = api.LegalCommentsNone
-	case "inline":
-		buildOptions.LegalComments = api.LegalCommentsInline
-	case "eof":
-		buildOptions.LegalComments = api.LegalCommentsEndOfFile
-	case "linked":
-		buildOptions.LegalComments = api.LegalCommentsLinked
-	case "external":
-		buildOptions.LegalComments = api.LegalCommentsExternal
-	default:
-		lib.Printe("wrong \"--legalComments\" mode! (allowed: none|inline|eof|linked|external)")
-		os.Exit(1)
-	}
-
-	switch config.SourceMap {
-	case "none":
-		buildOptions.Sourcemap = api.SourceMapNone
-	case "inline":
-		buildOptions.Sourcemap = api.SourceMapInline
-	case "linked":
-		buildOptions.Sourcemap = api.SourceMapLinked
-	case "external":
-		buildOptions.Sourcemap = api.SourceMapExternal
-	case "both":
-		buildOptions.Sourcemap = api.SourceMapInlineAndExternal
-	default:
-		lib.Printe("wrong \"--sourceMap\" value! (allowed: none|inline|linked|external|both)")
-		os.Exit(1)
-	}
-
-	if useColor {
-		buildOptions.Color = api.ColorIfTerminal
-	} else {
-		buildOptions.Color = api.ColorNever
 	}
 }

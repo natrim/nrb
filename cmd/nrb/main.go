@@ -9,45 +9,29 @@ import (
 	"github.com/natrim/nrb/lib"
 )
 
+var baseDir = "."
+
 var config = func() *lib.Config {
 	cfg := lib.DefaultConfig()
 	return &cfg
 }()
-
-var envFiles = ""
-var envLoaded = false
-var baseDir = "."
+var cliState CLIState
+var configOverrides lib.ConfigOverrides
 
 var isSecured = false
 var certFile, keyFile string
 
-var buildOptions api.BuildOptions
-
-var isHelp = false
-var isVersion = false
-var useColor = true
 var packagePath = "package.json"
+var buildOptions api.BuildOptions
 
 var versionData = "dev"
 var definedReplacements lib.MapFlags
 
-var currentConfigOverrides lib.ConfigOverrides
-
 func main() {
-	cliState, configOverrides, err := ParseFlags()
+	var err error
+	cliState, configOverrides, err = ParseFlags()
 	if err != nil {
 		os.Exit(1)
-	}
-
-	isHelp = cliState.IsHelp
-	isVersion = cliState.IsVersion
-	useColor = cliState.UseColor
-	envFiles = cliState.EnvFiles
-	currentConfigOverrides = configOverrides
-
-	if isVersion {
-		lib.PrintInfo("NRB version is:", lib.Yellow(lib.Version))
-		os.Exit(0)
 	}
 
 	if path, err := os.Getwd(); err == nil {
@@ -60,6 +44,14 @@ func main() {
 	}
 
 	command := flag.Arg(0)
+
+	if cliState.IsVersion {
+		command = "version"
+	}
+	if cliState.IsHelp {
+		command = "help"
+	}
+
 	switch command {
 	case "build", "watch":
 		if err := refreshRuntimeConfig(true); err != nil {
@@ -86,6 +78,8 @@ func main() {
 			lib.PrintError(err)
 			os.Exit(1)
 		}
+	case "version":
+		lib.PrintInfo("NRB version is:", lib.Yellow(lib.Version))
 	default:
 		lib.PrintInfo("Usage:", lib.Blue(filepath.Base(os.Args[0])), "[flags]", lib.Yellow("command"))
 		lib.PrintInfof(

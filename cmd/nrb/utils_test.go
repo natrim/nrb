@@ -208,7 +208,7 @@ func TestPrepareBuildPreloadPathsUsesMergedConfig(t *testing.T) {
 		t.Fatalf("ParseFlags returned error: %v", err)
 	}
 
-	currentConfigOverrides = overrides
+	configOverrides = overrides
 	buildEsbuildConfig(true)
 
 	preloadPaths := config.PreloadPathsStartingWith
@@ -249,7 +249,7 @@ func TestBuildEsbuildConfigDoesNotUseStaleLegacyCollectionGlobals(t *testing.T) 
 	if err != nil {
 		t.Fatalf("first ParseFlags returned error: %v", err)
 	}
-	currentConfigOverrides = firstOverrides
+	configOverrides = firstOverrides
 
 	resetRuntimeBridgeState()
 	baseDir = tempDir
@@ -263,7 +263,7 @@ func TestBuildEsbuildConfigDoesNotUseStaleLegacyCollectionGlobals(t *testing.T) 
 	if err != nil {
 		t.Fatalf("second ParseFlags returned error: %v", err)
 	}
-	currentConfigOverrides = secondOverrides
+	configOverrides = secondOverrides
 	buildEsbuildConfig(true)
 
 	if got := len(config.PreloadPathsStartingWith); got != 1 {
@@ -287,7 +287,7 @@ func TestBuildRuntimeConfigMergesDefaultsPackageAndCLIOverrides(t *testing.T) {
 
 	resetRuntimeBridgeState()
 	baseDir = tempDir
-	currentConfigOverrides = lib.ConfigOverrides{
+	configOverrides = lib.ConfigOverrides{
 		OutputDir:                lib.OptionalString{Value: "dist", Set: true},
 		Port:                     lib.OptionalInt{Value: 4567, Set: true},
 		PreloadPathsStartingWith: lib.ArrayFlags{"cli/preload"},
@@ -338,7 +338,7 @@ func TestBuildEsbuildConfigUsesFinalMergedConfigForEnvParsing(t *testing.T) {
 
 	resetRuntimeBridgeState()
 	baseDir = tempDir
-	currentConfigOverrides = lib.ConfigOverrides{
+	configOverrides = lib.ConfigOverrides{
 		EnvPrefix: lib.OptionalString{Value: "APP_", Set: true},
 	}
 
@@ -380,7 +380,7 @@ func TestRefreshRuntimeConfigForServeDoesNotRequirePackageJSON(t *testing.T) {
 
 	resetRuntimeBridgeState()
 	baseDir = tempDir
-	currentConfigOverrides = lib.ConfigOverrides{
+	configOverrides = lib.ConfigOverrides{
 		OutputDir: lib.OptionalString{Value: "dist", Set: true},
 		Port:      lib.OptionalInt{Value: 4321, Set: true},
 	}
@@ -431,7 +431,7 @@ func TestBuildEsbuildConfigRegeneratesDefinesWhenMergedConfigChanges(t *testing.
 	baseDir = tempDir
 
 	writePackageJSON(t, tempDir, `{"nrb":{"publicUrl":"/app/"}}`)
-	currentConfigOverrides = lib.ConfigOverrides{
+	configOverrides = lib.ConfigOverrides{
 		EnvPrefix: lib.OptionalString{Value: "APP_", Set: true},
 	}
 
@@ -448,7 +448,7 @@ func TestBuildEsbuildConfigRegeneratesDefinesWhenMergedConfigChanges(t *testing.
 	}
 
 	writePackageJSON(t, tempDir, `{"nrb":{"publicUrl":"/web/"}}`)
-	currentConfigOverrides = lib.ConfigOverrides{
+	configOverrides = lib.ConfigOverrides{
 		EnvPrefix: lib.OptionalString{Value: "WEB_", Set: true},
 	}
 
@@ -469,18 +469,15 @@ func TestBuildEsbuildConfigRegeneratesDefinesWhenMergedConfigChanges(t *testing.
 }
 
 func resetCLIParsingState() {
-	isHelp = false
-	isVersion = false
-	useColor = true
-	envFiles = ""
 	cfg := lib.DefaultConfig()
 	config = &cfg
+	cliState = CLIState{}
 }
 
 func resetRuntimeBridgeState() {
 	cfg := lib.DefaultConfig()
 	config = &cfg
-	currentConfigOverrides = lib.ConfigOverrides{}
+	configOverrides = lib.ConfigOverrides{}
 	envLoaded = false
 	baseDir = "."
 	packagePath = "package.json"

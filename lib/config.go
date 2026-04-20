@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/evanw/esbuild/pkg/api"
 )
 
 type Config struct {
@@ -26,9 +28,9 @@ type Config struct {
 	JSXFragment              string
 	JSXImportSource          string
 	JSXSideEffects           bool
-	JSX                      string
-	LegalComments            string
-	SourceMap                string
+	JSX                      api.JSX
+	LegalComments            api.LegalComments
+	SourceMap                api.SourceMap
 	Metafile                 bool
 	TSConfigPath             string
 	AliasPackages            MapFlags
@@ -61,6 +63,11 @@ type OptionalString struct {
 	Set   bool
 }
 
+type OptionalEnum[T any] struct {
+	Value T
+	Set   bool
+}
+
 type ConfigPatch struct {
 	EnvPrefix       OptionalString
 	SourceDir       OptionalString
@@ -79,9 +86,9 @@ type ConfigPatch struct {
 	JSXFragment     OptionalString
 	JSXImportSource OptionalString
 	JSXSideEffects  OptionalBool
-	JSX             OptionalString
-	LegalComments   OptionalString
-	SourceMap       OptionalString
+	JSX             OptionalEnum[api.JSX]
+	LegalComments   OptionalEnum[api.LegalComments]
+	SourceMap       OptionalEnum[api.SourceMap]
 	Metafile        OptionalBool
 	TSConfigPath    OptionalString
 	Splitting       OptionalBool
@@ -113,9 +120,9 @@ type ConfigOverrides struct {
 	JSXFragment     OptionalString
 	JSXImportSource OptionalString
 	JSXSideEffects  OptionalBool
-	JSX             OptionalString
-	LegalComments   OptionalString
-	SourceMap       OptionalString
+	JSX             OptionalEnum[api.JSX]
+	LegalComments   OptionalEnum[api.LegalComments]
+	SourceMap       OptionalEnum[api.SourceMap]
 	Metafile        OptionalBool
 	TSConfigPath    OptionalString
 	Splitting       OptionalBool
@@ -145,9 +152,9 @@ func DefaultConfig() Config {
 		AssetNames:    "media/[name]-[hash]",
 		ChunkNames:    "chunks/[name]-[hash]",
 		EntryNames:    "[name]",
-		LegalComments: "eof",
-		JSX:           "automatic",
-		SourceMap:     "linked",
+		LegalComments: api.LegalCommentsEndOfFile,
+		JSX:           api.JSXAutomatic,
+		SourceMap:     api.SourceMapLinked,
 		TSConfigPath:  "tsconfig.json",
 	}
 }
@@ -189,9 +196,9 @@ func MergeConfig(base Config, overlay ConfigPatch) Config {
 	mergeOptionalString(&base.JSXFragment, overlay.JSXFragment)
 	mergeOptionalString(&base.JSXImportSource, overlay.JSXImportSource)
 	mergeOptionalBool(&base.JSXSideEffects, overlay.JSXSideEffects)
-	mergeOptionalString(&base.JSX, overlay.JSX)
-	mergeOptionalString(&base.LegalComments, overlay.LegalComments)
-	mergeOptionalString(&base.SourceMap, overlay.SourceMap)
+	mergeOptionalEnum(&base.JSX, overlay.JSX)
+	mergeOptionalEnum(&base.LegalComments, overlay.LegalComments)
+	mergeOptionalEnum(&base.SourceMap, overlay.SourceMap)
 	mergeOptionalBool(&base.Metafile, overlay.Metafile)
 	mergeOptionalString(&base.TSConfigPath, overlay.TSConfigPath)
 	mergeOptionalBool(&base.Splitting, overlay.Splitting)
@@ -237,9 +244,9 @@ func ApplyOverrides(cfg *Config, overrides ConfigOverrides) {
 	mergeOptionalString(&cfg.JSXFragment, overrides.JSXFragment)
 	mergeOptionalString(&cfg.JSXImportSource, overrides.JSXImportSource)
 	mergeOptionalBool(&cfg.JSXSideEffects, overrides.JSXSideEffects)
-	mergeOptionalString(&cfg.JSX, overrides.JSX)
-	mergeOptionalString(&cfg.LegalComments, overrides.LegalComments)
-	mergeOptionalString(&cfg.SourceMap, overrides.SourceMap)
+	mergeOptionalEnum(&cfg.JSX, overrides.JSX)
+	mergeOptionalEnum(&cfg.LegalComments, overrides.LegalComments)
+	mergeOptionalEnum(&cfg.SourceMap, overrides.SourceMap)
 	mergeOptionalBool(&cfg.Metafile, overrides.Metafile)
 	mergeOptionalString(&cfg.TSConfigPath, overrides.TSConfigPath)
 	mergeOptionalBool(&cfg.Splitting, overrides.Splitting)
@@ -278,6 +285,12 @@ func mergeOptionalInt(dst *int, value OptionalInt) {
 }
 
 func mergeOptionalInt64(dst *int64, value OptionalInt64) {
+	if value.Set {
+		*dst = value.Value
+	}
+}
+
+func mergeOptionalEnum[T any](dst *T, value OptionalEnum[T]) {
 	if value.Set {
 		*dst = value.Value
 	}
@@ -353,13 +366,13 @@ func ParseJsonConfig(packageJson PackageJson) (ConfigPatch, error) {
 	if err := parseOptionalBool(options, "jsxSideEffects", &config.JSXSideEffects); err != nil {
 		return config, err
 	}
-	if err := parseOptionalString(options, "jsx", &config.JSX); err != nil {
+	if err := parseOptionalJSX(options, "jsx", &config.JSX); err != nil {
 		return config, err
 	}
-	if err := parseOptionalString(options, "legalComments", &config.LegalComments); err != nil {
+	if err := parseOptionalLegalComments(options, "legalComments", &config.LegalComments); err != nil {
 		return config, err
 	}
-	if err := parseOptionalString(options, "sourceMap", &config.SourceMap); err != nil {
+	if err := parseOptionalSourceMap(options, "sourceMap", &config.SourceMap); err != nil {
 		return config, err
 	}
 	if err := parseOptionalBool(options, "metafile", &config.Metafile); err != nil {
@@ -394,6 +407,104 @@ func ParseJsonConfig(packageJson PackageJson) (ConfigPatch, error) {
 	return config, nil
 }
 
+func ParseJSX(value string) (api.JSX, error) {
+	switch value {
+	case "transform":
+		return api.JSXTransform, nil
+	case "preserve":
+		return api.JSXPreserve, nil
+	case "automatic":
+		return api.JSXAutomatic, nil
+	default:
+		return 0, fmt.Errorf("wrong 'jsx' value in 'package.json', use automatic|transform|preserve")
+	}
+}
+
+func JSXString(value api.JSX) string {
+	switch value {
+	case api.JSXTransform:
+		return "transform"
+	case api.JSXPreserve:
+		return "preserve"
+	case api.JSXAutomatic:
+		return "automatic"
+	default:
+		return "unknown"
+	}
+}
+
+func ParseLegalComments(value string) (api.LegalComments, error) {
+	switch value {
+	case "default":
+		return api.LegalCommentsDefault, nil
+	case "none":
+		return api.LegalCommentsNone, nil
+	case "inline":
+		return api.LegalCommentsInline, nil
+	case "eof":
+		return api.LegalCommentsEndOfFile, nil
+	case "linked":
+		return api.LegalCommentsLinked, nil
+	case "external":
+		return api.LegalCommentsExternal, nil
+	default:
+		return 0, fmt.Errorf("wrong 'legalComments' value in 'package.json', use none|inline|eof|linked|external")
+	}
+}
+
+func LegalCommentsString(value api.LegalComments) string {
+	switch value {
+	case api.LegalCommentsDefault:
+		return "default"
+	case api.LegalCommentsNone:
+		return "none"
+	case api.LegalCommentsInline:
+		return "inline"
+	case api.LegalCommentsEndOfFile:
+		return "eof"
+	case api.LegalCommentsLinked:
+		return "linked"
+	case api.LegalCommentsExternal:
+		return "external"
+	default:
+		return "unknown"
+	}
+}
+
+func ParseSourceMap(value string) (api.SourceMap, error) {
+	switch value {
+	case "none":
+		return api.SourceMapNone, nil
+	case "inline":
+		return api.SourceMapInline, nil
+	case "linked":
+		return api.SourceMapLinked, nil
+	case "external":
+		return api.SourceMapExternal, nil
+	case "both":
+		return api.SourceMapInlineAndExternal, nil
+	default:
+		return 0, fmt.Errorf("wrong 'sourceMap' value in 'package.json', use none|inline|linked|external|both")
+	}
+}
+
+func SourceMapString(value api.SourceMap) string {
+	switch value {
+	case api.SourceMapNone:
+		return "none"
+	case api.SourceMapInline:
+		return "inline"
+	case api.SourceMapLinked:
+		return "linked"
+	case api.SourceMapExternal:
+		return "external"
+	case api.SourceMapInlineAndExternal:
+		return "both"
+	default:
+		return "unknown"
+	}
+}
+
 func parseOptionalString(options map[string]any, key string, target *OptionalString) error {
 	value, ok := options[key]
 	if !ok {
@@ -406,6 +517,66 @@ func parseOptionalString(options map[string]any, key string, target *OptionalStr
 	}
 
 	*target = OptionalString{Value: s, Set: true}
+	return nil
+}
+
+func parseOptionalJSX(options map[string]any, key string, target *OptionalEnum[api.JSX]) error {
+	value, ok := options[key]
+	if !ok {
+		return nil
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("wrong '%s' key in 'package.json', use string", key)
+	}
+
+	parsed, err := ParseJSX(s)
+	if err != nil {
+		return err
+	}
+
+	*target = OptionalEnum[api.JSX]{Value: parsed, Set: true}
+	return nil
+}
+
+func parseOptionalLegalComments(options map[string]any, key string, target *OptionalEnum[api.LegalComments]) error {
+	value, ok := options[key]
+	if !ok {
+		return nil
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("wrong '%s' key in 'package.json', use string", key)
+	}
+
+	parsed, err := ParseLegalComments(s)
+	if err != nil {
+		return err
+	}
+
+	*target = OptionalEnum[api.LegalComments]{Value: parsed, Set: true}
+	return nil
+}
+
+func parseOptionalSourceMap(options map[string]any, key string, target *OptionalEnum[api.SourceMap]) error {
+	value, ok := options[key]
+	if !ok {
+		return nil
+	}
+
+	s, ok := value.(string)
+	if !ok {
+		return fmt.Errorf("wrong '%s' key in 'package.json', use string", key)
+	}
+
+	parsed, err := ParseSourceMap(s)
+	if err != nil {
+		return err
+	}
+
+	*target = OptionalEnum[api.SourceMap]{Value: parsed, Set: true}
 	return nil
 }
 
