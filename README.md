@@ -152,16 +152,17 @@ or set `ENV` variables `DEV_SERVER_CERT` and `DEV_SERVER_KEY` with paths to cert
                 "jpg"
             ]
         },
-        "splitting": true
+        "splitting": true,
+        "jsxImportSource": "preact",
+        "jsxFragment": "Fragment",
+        "jsxFactory": "h"
     }
 }
 ```
 
 ### TODO
 
-- better config
-- documentation
-- more thing to read from config (custom config file instead of just reading package.json?)
-- logging
-- prebuilt binaries (npm?)
+- more config options
+- better documentation
+- logging to files?
 - custom plugins?
